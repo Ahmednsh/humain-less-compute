@@ -23,11 +23,28 @@ describe('openrouter client', () => {
   });
   it('retries on 429 then succeeds, gives up after maxAttempts', async () => {
     let n = 0;
-    const fetchImpl: FetchLike = async () => (++n < 3 ? ok({ error: 'rate' }, 429) : ok({ choices: [{ message: { content: 'ok' } }], usage: { prompt_tokens: 1, completion_tokens: 1 } }));
+    const fetchImpl: FetchLike = async () => (++n < 3 ? ok({ error: 'rate' }, 429) : ok({ choices: [{ message: { content: 'ok' } }], usage: { prompt_tokens: 1, completion_tokens: 1, cost: 0.00001 } }));
     const r = await createOpenRouterClient({ apiKey: 'k', fetchImpl, maxAttempts: 3, backoffMs: 1 }).chat('m', []);
     expect(r.text).toBe('ok'); expect(n).toBe(3);
     const bad: FetchLike = async () => ok({}, 500);
     await expect(createOpenRouterClient({ apiKey: 'k', fetchImpl: bad, maxAttempts: 2, backoffMs: 1 }).chat('m', [])).rejects.toThrow(/500/);
+  });
+  it('retries transient network and body-parse errors with the same backoff', async () => {
+    let n = 0;
+    const fetchImpl: FetchLike = async () => { n++; if (n === 1) throw new TypeError('fetch failed'); if (n === 2) return new Response('<html>502</html>', { status: 200, headers: { 'content-type': 'text/html' } }); return ok({ choices: [{ message: { content: 'ok' } }], usage: { prompt_tokens: 1, completion_tokens: 1 } }); };
+    const r = await createOpenRouterClient({ apiKey: 'k', fetchImpl, backoffMs: 1 }).chat('anthropic/claude-haiku-5.5', []);
+    expect(r.text).toBe('ok'); expect(n).toBe(3);
+  });
+  it('records finish_reason and reasoning tokens, asks for reasoning off and a generous max_tokens', async () => {
+    let seen: Record<string, unknown> = {};
+    const fetchImpl: FetchLike = async (_u, init) => { seen = JSON.parse(String(init?.body)); return ok({ choices: [{ message: { content: 'x' }, finish_reason: 'length' }], usage: { prompt_tokens: 5, completion_tokens: 900, completion_tokens_details: { reasoning_tokens: 880 }, cost: 0.001 } }); };
+    const r = await createOpenRouterClient({ apiKey: 'k', fetchImpl }).chat('m', []);
+    expect(r.finishReason).toBe('length'); expect(r.reasoningTokens).toBe(880);
+    expect(seen.reasoning).toEqual({ enabled: false }); expect(seen.max_tokens).toBeGreaterThanOrEqual(1500);
+  });
+  it('fails loudly instead of recording zero cost for an unpriced model without usage.cost', async () => {
+    const fetchImpl: FetchLike = async () => ok({ choices: [{ message: { content: 'x' } }], usage: { prompt_tokens: 10, completion_tokens: 1 } });
+    await expect(createOpenRouterClient({ apiKey: 'k', fetchImpl }).chat('vendor/unknown-model', [])).rejects.toThrow(/cost/i);
   });
   it('does not retry a 400 and surfaces the body', async () => {
     let n = 0; const fetchImpl: FetchLike = async () => { n++; return ok({ error: { message: 'bad model' } }, 400); };
@@ -36,7 +53,7 @@ describe('openrouter client', () => {
   });
   it('limits concurrency', async () => {
     let active = 0, peak = 0;
-    const fetchImpl: FetchLike = async () => { active++; peak = Math.max(peak, active); await new Promise(r => setTimeout(r, 5)); active--; return ok({ choices: [{ message: { content: 'x' } }], usage: {} }); };
+    const fetchImpl: FetchLike = async () => { active++; peak = Math.max(peak, active); await new Promise(r => setTimeout(r, 5)); active--; return ok({ choices: [{ message: { content: 'x' } }], usage: { cost: 0 } }); };
     const c = createOpenRouterClient({ apiKey: 'k', fetchImpl, concurrency: 2 });
     await Promise.all([1, 2, 3, 4, 5].map(() => c.chat('m', [])));
     expect(peak).toBe(2);

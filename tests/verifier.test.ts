@@ -5,6 +5,7 @@ import { createMockClient } from '../src/llm/mock.js';
 import { buildContext } from '../src/agent/context.js';
 import { freeChecks, sqlComplexity, shouldVerify, llmVerify, applyCorrection } from '../src/agent/verifier.js';
 import { THRESHOLDS } from '../src/config.js';
+import { syncExec } from '../src/data/sqlexec.js';
 import type { AttemptResult } from '../src/agent/trace.js';
 
 const setup = () => { const db = openDb(':memory:'); createSchema(db); generateCompany(db, 1, { customers: 20, products: 10, employees: 5, orders: 50, tickets: 10 }); return { db, schema: introspectSchema(db) }; };
@@ -39,9 +40,9 @@ describe('verifier', () => {
     const v = await llmVerify({ client, model: 'm', question: 'How many customers?', ctx: buildContext('How many customers?', schema, 'pruned'), sql: 'SELECT COUNT(*) FROM products', rows: [{ c: 10 }] });
     expect(v.verdict).toBe('incorrect'); expect(v.correctedSql).toBe('SELECT COUNT(*) FROM customers'); expect(v.call.purpose).toBe('verify');
     const prompt = client.calls[0]!.messages.at(-1)!.content; expect(prompt).toContain('SELECT COUNT(*) FROM products'); expect(prompt).toContain('How many customers?');
-    const fixed = applyCorrection(db, v.correctedSql!, 'scalar');
+    const fixed = await applyCorrection(syncExec(db), v.correctedSql!, 'scalar');
     expect(fixed.ok && fixed.answer).toBe(20);
-    expect(applyCorrection(db, 'DELETE FROM customers', 'scalar').ok).toBe(false);
+    expect((await applyCorrection(syncExec(db), 'DELETE FROM customers', 'scalar')).ok).toBe(false);
   });
   it('llmVerify reports unparseable output distinctly and still records the call', async () => {
     const { schema } = setup(); const client = createMockClient(() => 'hmm');

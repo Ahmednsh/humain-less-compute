@@ -7,6 +7,7 @@ import { THRESHOLDS, type Policy, type Thresholds, type Tiers } from '../config.
 import type { Answer, Task } from '../tasks/types.js';
 import { runTask, type TaskOutcome } from '../agent/controller.js';
 import { buildValueIndex } from '../agent/context.js';
+import type { SqlExec } from '../data/sqlexec.js';
 import type { CallRecord } from '../agent/trace.js';
 import type { Verdict } from '../agent/verifier.js';
 import { scoreAnswer } from './score.js';
@@ -58,6 +59,8 @@ export interface RunEvalArgs {
   outPath: string;
   concurrency?: number;
   onRow?: (row: RunRow) => void;
+  /** Optional deadline-enforcing executor for model SQL (see createWorkerExec). */
+  exec?: SqlExec;
 }
 
 /** Reads a JSONL run log; a truncated last line (crash mid-write) is skipped, not fatal. */
@@ -86,7 +89,7 @@ export async function runEval(a: RunEvalArgs): Promise<RunRow[]> {
   const fresh = await Promise.all(a.tasks.filter(t => !done.has(t.id)).map(task => limit(async () => {
     let row: RunRow;
     try {
-      const o = await runTask({ task: { id: task.id, question: task.question }, policy: a.policy, client: a.client, db: a.db, schema: a.schema, tiers: a.tiers, thresholds, values });
+      const o = await runTask({ task: { id: task.id, question: task.question }, policy: a.policy, client: a.client, db: a.db, schema: a.schema, tiers: a.tiers, thresholds, values, exec: a.exec });
       row = toRow(runId, a, thresholds, task, o);
     } catch (e) {
       row = errorRow(runId, a, thresholds, task, (e as Error).message);

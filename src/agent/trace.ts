@@ -7,6 +7,8 @@ export interface CallRecord {
   model: string;
   promptTokens: number;
   completionTokens: number;
+  reasoningTokens: number;
+  finishReason: string | null;
   costUsd: number;
   latencyMs: number;
 }

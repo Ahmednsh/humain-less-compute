@@ -1,6 +1,6 @@
-import type { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
-import { runReadOnly, type Row } from '../data/db.js';
+import type { Row } from '../data/db.js';
+import type { SqlExec } from '../data/sqlexec.js';
 import { rowsToAnswer } from '../eval/score.js';
 import type { ChatMessage, LlmClient, LlmResponse } from '../llm/types.js';
 import type { AgentContext } from './context.js';
@@ -27,7 +27,7 @@ export function parseModelJson(text: string): ModelJson | null {
 }
 
 export const toCall = (purpose: CallPurpose, r: LlmResponse): CallRecord =>
-  ({ purpose, model: r.model, promptTokens: r.promptTokens, completionTokens: r.completionTokens, costUsd: r.costUsd, latencyMs: r.latencyMs });
+  ({ purpose, model: r.model, promptTokens: r.promptTokens, completionTokens: r.completionTokens, reasoningTokens: r.reasoningTokens ?? 0, finishReason: r.finishReason ?? null, costUsd: r.costUsd, latencyMs: r.latencyMs });
 
 export function rowsPreview(rows: Row[], n = 5): string {
   return rows.length === 0 ? '(no rows)' : rows.slice(0, n).map(r => JSON.stringify(r)).join('\n') + (rows.length > n ? `\n... (${rows.length} rows)` : '');
@@ -37,7 +37,7 @@ export interface AttemptArgs {
   client: LlmClient;
   model: string;
   tier: 'small' | 'large';
-  db: DatabaseSync;
+  exec: SqlExec;
   question: string;
   ctx: AgentContext;
   maxRepairs: number;
@@ -63,7 +63,7 @@ export async function runAttempt(a: AttemptArgs): Promise<AttemptResult> {
     if (!parsed) { result.error = 'model output was not the expected JSON'; messages.push({ role: 'user', content: repairPrompt(result.error) }); continue; }
     result.sql = parsed.sql; result.answerShape = parsed.answer_shape; result.confidence = parsed.confidence;
 
-    const q = runReadOnly(a.db, parsed.sql);
+    const q = await a.exec.run(parsed.sql);
     if (!q.ok) { result.error = q.error; result.rows = null; result.answer = null; messages.push({ role: 'user', content: repairPrompt(q.error) }); continue; }
     result.rows = q.rows;
     result.answer = rowsToAnswer(q.rows, parsed.answer_shape);

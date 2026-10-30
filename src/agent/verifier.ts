@@ -1,6 +1,6 @@
-import type { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
-import { runReadOnly, type Row } from '../data/db.js';
+import type { Row } from '../data/db.js';
+import type { SqlExec } from '../data/sqlexec.js';
 import { rowsToAnswer } from '../eval/score.js';
 import type { LlmClient } from '../llm/types.js';
 import type { Thresholds } from '../config.js';
@@ -63,8 +63,8 @@ export async function llmVerify(a: { client: LlmClient; model: string; question:
   }
 }
 
-export function applyCorrection(db: DatabaseSync, sql: string, shape: 'scalar' | 'list'): { ok: true; rows: Row[]; answer: Answer } | { ok: false; error: string } {
-  const q = runReadOnly(db, sql);
+export async function applyCorrection(exec: SqlExec, sql: string, shape: 'scalar' | 'list'): Promise<{ ok: true; rows: Row[]; answer: Answer } | { ok: false; error: string }> {
+  const q = await exec.run(sql);
   if (!q.ok) return { ok: false, error: q.error };
   const answer = rowsToAnswer(q.rows, shape);
   if (answer == null || (Array.isArray(answer) && answer.length === 0)) return { ok: false, error: 'empty result' };

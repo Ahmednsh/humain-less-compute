@@ -3,6 +3,7 @@ import type { SchemaInfo } from '../data/db.js';
 import type { LlmClient } from '../llm/types.js';
 import { THRESHOLDS, type Policy, type Thresholds, type Tiers } from '../config.js';
 import type { Answer } from '../tasks/types.js';
+import { syncExec, type SqlExec } from '../data/sqlexec.js';
 import { buildContext, type AgentContext, type ValueIndex } from './context.js';
 import { runAttempt } from './executor.js';
 import { route } from './router.js';
@@ -44,6 +45,8 @@ export interface RunTaskArgs {
   thresholds?: Thresholds;
   /** Known dimension values for pruning (from buildValueIndex); optional. */
   values?: ValueIndex;
+  /** How model-written SQL is executed; defaults to in-process on `db` (no deadline). The CLI passes a worker pool with a timeout. */
+  exec?: SqlExec;
 }
 
 interface Stage {
@@ -62,13 +65,14 @@ export async function runTask(a: RunTaskArgs): Promise<TaskOutcome> {
   const firstTier: 'small' | 'large' = a.policy.tier === 'auto' ? decision.tier : a.policy.tier;
   const ctx = buildContext(a.task.question, a.schema, a.policy.prune ? 'pruned' : 'full', a.values);
   const money = decision.features.money;
+  const exec = a.exec ?? syncExec(a.db);
   const calls: CallRecord[] = [];
   const onCall = (c: CallRecord) => { calls.push(c); };
   const stages: Stage[] = [];
   let escalated = false;
 
   const stage = async (tier: 'small' | 'large'): Promise<Stage> => {
-    const attempt = await runAttempt({ client: a.client, model: a.tiers[tier], tier, db: a.db, question: a.task.question, ctx, maxRepairs: T.maxRepairs[tier], onCall });
+    const attempt = await runAttempt({ client: a.client, model: a.tiers[tier], tier, exec, question: a.task.question, ctx, maxRepairs: T.maxRepairs[tier], onCall });
     const free = freeChecks(attempt, a.task.question);
     const s: Stage = { attempt, ok: free.ok, reason: free.reason, verified: false, reasons: [], verdict: null, corrected: false, verifierRejected: false, answer: attempt.answer, sql: attempt.sql };
     if (!free.ok || !attempt.sql || !attempt.rows) return s;
@@ -81,7 +85,7 @@ export async function runTask(a: RunTaskArgs): Promise<TaskOutcome> {
     const v = await llmVerify({ client: a.client, model: a.tiers.large, question: a.task.question, ctx, sql: attempt.sql, rows: attempt.rows, onCall });
     s.verified = true; s.reasons = want.reasons; s.verdict = v.verdict;
     if (v.verdict === 'incorrect') {
-      const fixed = v.correctedSql ? applyCorrection(a.db, v.correctedSql, attempt.answerShape) : null;
+      const fixed = v.correctedSql ? await applyCorrection(exec, v.correctedSql, attempt.answerShape) : null;
       if (fixed && fixed.ok) { s.corrected = true; s.answer = fixed.answer; s.sql = v.correctedSql; s.ok = true; }
       else if (tier === 'small' && a.policy.tier === 'auto') { s.ok = false; s.reason = 'verifier rejected the query'; }
       else { s.verifierRejected = true; } // nothing better available: keep the original answer, flag it

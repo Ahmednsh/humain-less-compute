@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { openDb, createSchema, introspectSchema } from './data/db.js';
+import { createWorkerExec } from './data/sqlexec.js';
 import { generateCompany } from './data/generate.js';
 import { RENAME_MAP, applyRenameToDb } from './data/rename.js';
 import { generateTasks } from './tasks/generate.js';
@@ -81,7 +82,10 @@ async function evalCmd(flags: Flags): Promise<void> {
     spent += r.costUsd;
     console.log(`${r.correct ? '✔' : '✘'} ${r.taskId.padEnd(40)} route=${r.route.padEnd(5)} esc=${r.escalated ? 1 : 0} ver=${r.verified ? 1 : 0} rep=${r.repairs} tables=${r.tablesSent.length} $${r.costUsd.toFixed(4)} ${r.latencyMs}ms${r.error ? `  [${r.error.slice(0, 60)}]` : ''}`);
   };
-  const rows = await runEval({ runId, policyName, policy, tasks, client, db, schema, tiers, thresholds, outPath, concurrency: num(flags, 'concurrency', 4), onRow });
+  const exec = createWorkerExec(str(flags, 'db'), { timeoutMs: num(flags, 'sql-timeout', 15000), poolSize: Math.min(4, num(flags, 'concurrency', 4)) });
+  let rows: RunRow[];
+  try { rows = await runEval({ runId, policyName, policy, tasks, client, db, schema, tiers, thresholds, outPath, concurrency: num(flags, 'concurrency', 4), onRow, exec }); }
+  finally { exec.close(); }
   const s = summarize(rows);
   console.log(`\ndone in ${((Date.now() - t0) / 1000).toFixed(0)}s · spent $${spent.toFixed(4)} this session · log ${outPath}\n`);
   console.log(renderMarkdown([{ name: policyName, label: POLICY_LABELS[policyName], s }], policyName));
