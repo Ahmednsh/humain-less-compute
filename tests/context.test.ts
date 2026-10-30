@@ -1,0 +1,47 @@
+import { describe, it, expect } from 'vitest';
+import { openDb, createSchema, introspectSchema } from '../src/data/db.js';
+import { selectTables, matchTables, buildContext } from '../src/agent/context.js';
+import { FEWSHOTS } from '../src/agent/fewshots.js';
+import { runReadOnly } from '../src/data/db.js';
+import { fixtureDb } from './fixtures/fixture.js';
+
+const schema = () => { const d = openDb(':memory:'); createSchema(d); return introspectSchema(d); };
+
+describe('context', () => {
+  it('selects relevant tables for a revenue-by-region question', () => {
+    const t = selectTables('What was the total delivered revenue for the Asir region in Q2 2025?', schema());
+    for (const n of ['orders', 'order_items', 'customers', 'cities', 'regions']) expect(t).toContain(n);
+    expect(t).not.toContain('support_tickets'); expect(t).not.toContain('payments');
+  });
+  it('connects disconnected tables', () => {
+    const t = selectTables('Which employee has the most refunds?', schema());
+    for (const n of ['employees', 'returns', 'order_items', 'orders']) expect(t).toContain(n);
+  });
+  it('arabic question maps to tables', () => {
+    expect(selectTables('كم عدد العملاء في منطقة الرياض؟', schema())).toEqual(expect.arrayContaining(['customers', 'cities', 'regions']));
+  });
+  it('falls back to the core tables when nothing matches', () => {
+    expect(selectTables('hello there', schema())).toEqual(['customers', 'order_items', 'orders', 'products']);
+  });
+  it('matchTables is the lexical stage without the FK closure', () => {
+    expect(matchTables('Which employee has the most refunds?', schema())).toEqual(expect.arrayContaining(['employees', 'returns']));
+    expect(matchTables('Which employee has the most refunds?', schema())).not.toContain('orders');
+  });
+  it('pruned context is much smaller than full', () => {
+    const q = 'How many customers are in the wholesale segment?'; const s = schema();
+    const full = buildContext(q, s, 'full'), pruned = buildContext(q, s, 'pruned');
+    expect(full.tables.length).toBe(12); expect(pruned.tables).toEqual(['customers']);
+    expect(pruned.ddl.length * 3).toBeLessThan(full.ddl.length);
+    expect(full.fewshots.length).toBe(8); expect(pruned.fewshots.length).toBeLessThanOrEqual(2);
+    expect(full.glossary.length).toBeGreaterThan(pruned.glossary.length);
+  });
+  it('pruned glossary keeps the lines the question needs', () => {
+    const s = schema();
+    expect(buildContext('What was the net revenue of Rep A in 2025?', s, 'pruned').glossary).toMatch(/net revenue/i);
+    expect(buildContext('How many cities are in Asir?', s, 'pruned').glossary).not.toMatch(/net revenue/i);
+  });
+  it('every few-shot SQL runs on the fixture', () => {
+    const db = fixtureDb();
+    for (const f of FEWSHOTS) { const r = runReadOnly(db, f.sql); expect(r.ok, `${f.q}: ${(r as { error?: string }).error}`).toBe(true); }
+  });
+});
