@@ -194,3 +194,28 @@ Thresholds (θ = 4, confidence 0.75, complexity 3, money) are unchanged. P2 and 
 **Decision.** Run the rest sequentially in priority order so the most decisive evidence lands first if the balance runs out: finish P3 and P2 (iteration 2) on dev → **thresholds frozen** (θ = 4; verify small-tier only when confidence < 0.75, SQL complexity ≥ 3 or money) → held-out P0 and P3 (150 tasks, single run) → V (verify-always contrast) → R3 (small-model swap) → R1 (renamed schema) → R2 (Arabic). Robustness sets are cut from 90 to the first 60 tasks of each generated file (estimated saving ≈ USD 0.7) so the whole plan fits ≈ USD 4.6.
 
 **Why.** The held-out run is criterion 1 and cannot be repeated; robustness rows are informative at n = 60. The order is written in `.superpowers/run-rest.sh` (not committed) and every run is resumable.
+
+## D-021 · 2026-10-31 · Final results and what they say
+
+**Dev set (150 tasks; iteration 2; `results/report.md`).**
+
+| policy | accuracy | p95 | prompt tokens | cost / success | Δ vs P0 | floors (acc / p95) |
+|---|---:|---:|---:|---:|---:|---|
+| P0 large always | 100.0 % | 3 370 ms | 3 461 | $0.0086 | — | reference |
+| S small only | 84.7 % | 7 006 ms | 2 042 | $0.0003 | −96 % | ❌ / ❌ |
+| P1 + router | 98.0 % | 3 524 ms | 2 644 | $0.0047 | −46 % | ✅ / ✅ |
+| P2 + context pruning | 99.3 % | 2 987 ms | 953 | $0.0028 | −68 % | ✅ / ✅ |
+| P3 + selective verification | 100.0 % | 4 323 ms | 1 041 | $0.0030 | −65 % | ✅ / ❌ (by 110 ms) |
+| V verify always | 100.0 % | 7 112 ms | 1 903 | $0.0068 | −21 % | ✅ / ❌ |
+
+**Held-out (150 unseen tasks incl. six unseen question types; one run each, thresholds frozen beforehand).** P0 99.3 %, p95 3 107 ms, $0.0093 per success. **P3 98.7 %, p95 4 419 ms, $0.0030 per success: −68 % cost at −0.6 pp accuracy**, inside the accuracy floor, outside the p95 floor (3 884 ms). 58 % of tasks were routed to the small model, 8 % verified, 1 verifier correction, 0 escalations. The one P0 miss and one of the two P3 misses are the same unseen template (quarterly refund ratio) — both models read the question the same way, which points at the question, not the controller; the other P3 miss is a small-tier city ranking that passed free checks and did not trigger verification. Only this aggregate was read; the task file was never opened.
+
+**Robustness (60 tasks each, no retuning).** Renamed schema: P3 100 % at $0.0034 (P0 on the same set: see table; 24 of 60 tasks before the balance ran out, 100 %). Arabic questions: P3 100 % at $0.0031 with 831 prompt tokens (Arabic text tokenises longer, yet pruning keeps the prompt a quarter of the baseline's). Small model swapped to qwen3.7-flash: 100 % accuracy and 5 % escalations, but p95 29 s — the swap is safe for accuracy and cost, not for latency; the controller surfaces that immediately.
+
+**What the ladder says.**
+1. Routing alone halves cost inside both floors. Pruning is the biggest single saving (−68 %) and *improves* p95, because the small model answers faster with a quarter of the prompt. Selective verification buys the last 0.7 pp on dev for +$0.0002 per task and costs ~0.4 s of p95 because a verification is a second, sequential large call on a small-tier answer.
+2. Verify-always is strictly dominated: same accuracy as P3 at 2.3 × the cost and 1.6 × the p95.
+3. The pre-registered p95 floor (1.25 × a single flagship call) is the one floor the full system misses, by 0.1 s on dev and 0.5 s on held-out. P2 is the Pareto choice when p95 is binding; P3 when accuracy is. Both are reported; neither floor was moved after the fact.
+4. Everything in the ladder is reproducible from the committed logs with one command (`npx tsx scripts/build-report.ts`), and from scratch with `scripts/run-ladder.sh`.
+
+**Total spend on OpenRouter for the whole project: ≈ USD 8.1** (3.45 before the top-up incl. baseline, bake-off, sweep; ≈ 4.4 after).
