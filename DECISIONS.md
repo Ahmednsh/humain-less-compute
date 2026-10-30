@@ -188,3 +188,9 @@ Format per entry: **Decision** — what was chosen. **Why** — the reasons. **R
 Thresholds (θ = 4, confidence 0.75, complexity 3, money) are unchanged. P2 and P3 will be re-run as iteration 2; iteration-1 logs stay in `results/runs/` and in the experiment log.
 
 **Why this is legitimate.** All changes were derived from the dev set only; the held-out set has not been touched. This is the regression-check-and-iterate loop criterion 3 asks for, and the iteration-1 rows remain in the report.
+
+## D-020 · 2026-10-31 · Budget plan for the remaining runs (USD 5.08 available after top-up)
+
+**Decision.** Run the rest sequentially in priority order so the most decisive evidence lands first if the balance runs out: finish P3 and P2 (iteration 2) on dev → **thresholds frozen** (θ = 4; verify small-tier only when confidence < 0.75, SQL complexity ≥ 3 or money) → held-out P0 and P3 (150 tasks, single run) → V (verify-always contrast) → R3 (small-model swap) → R1 (renamed schema) → R2 (Arabic). Robustness sets are cut from 90 to the first 60 tasks of each generated file (estimated saving ≈ USD 0.7) so the whole plan fits ≈ USD 4.6.
+
+**Why.** The held-out run is criterion 1 and cannot be repeated; robustness rows are informative at n = 60. The order is written in `.superpowers/run-rest.sh` (not committed) and every run is resumable.
