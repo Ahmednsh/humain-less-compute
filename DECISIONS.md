@@ -100,3 +100,17 @@ Format per entry: **Decision** — what was chosen. **Why** — the reasons. **R
 **Decision.** Policies P0 baseline (large, full context, no verify), S small-only, P1 +router, P2 +prune, P3 +selective verify (full system), V verify-always. Robustness: R1 schema rename, R2 Arabic questions, R3 small-model swap, each P0 vs P3 with frozen thresholds.
 
 **Why.** One row per component is the evidence criterion 3 asks for; S and V exist to show that the naive extremes (always cheap, always verify) lose. The robustness set targets criterion 2 with changes a real deployment sees: schema drift, language shift, model churn.
+
+## D-013 · 2026-10-30 · Context pruner links known dimension values; recall measured before any paid run
+
+**Decision.** Besides table/column names and synonyms, the pruner matches region, city and category names read from the database (a value can map to several tables, e.g. "Riyadh" is a region and a city). Measured with `scripts/pruner-recall.ts` on the 150-task dev set: 100 % of tasks receive every table their gold SQL uses, with 2.6 of 12 tables sent on average (was 97.3 % before value linking).
+
+**Why.** Questions phrased as "customers in Eastern Province" never say "region"; schema linking by value is the standard, cheap fix, and the recall script is a zero-cost component validation (judging criterion 3). Tuned on the dev set only.
+
+**Rejected.** Embedding-based retrieval — adds a model call per task and a dependency for a problem that lexical matching already solves here.
+
+## D-014 · 2026-10-30 · Held-out set generated (protocol step 1 executed)
+
+**Decision.** `gen-tasks --holdout` was run once with a seed produced by `crypto.randomInt` and written only to `C:\D\My Claude Projects\humain-holdout\seed.txt` (never printed); output `holdout.jsonl` (150 tasks, 50/50/50, includes the six holdout-only templates) lives in that directory outside the repository. The CLI refuses `--holdout` for any path inside the repository (tested). Nothing from the file has been or will be read; one run each of P0 and P3 will be made after thresholds are frozen.
+
+**Why.** D-011 and judging criterion 1.
