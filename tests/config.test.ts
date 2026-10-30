@@ -17,7 +17,7 @@ describe('config', () => {
     expect(THRESHOLDS.verifyConfidence).toBeLessThan(1);
   });
   it('tier overrides replace the defaults; env overrides are read at call time', () => {
-    expect(TIERS.small).toBe('anthropic/claude-haiku-5.5');
+    expect(TIERS.small).toBe('meta-llama/llama-3.3-70b-instruct');
     expect(resolveTiers({ small: 'qwen/qwen3.7-flash' })).toEqual({ small: 'qwen/qwen3.7-flash', large: 'anthropic/claude-sonnet-5.5' });
     process.env.LARGE_MODEL = 'openai/gpt-5.4';
     try { expect(resolveTiers().large).toBe('openai/gpt-5.4'); expect(resolveTiers({ large: 'x' }).large).toBe('x'); } finally { delete process.env.LARGE_MODEL; }

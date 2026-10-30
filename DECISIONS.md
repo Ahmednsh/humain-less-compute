@@ -134,3 +134,23 @@ Format per entry: **Decision** — what was chosen. **Why** — the reasons. **R
 **Decision.** Select the small tier by measurement: run policy S with six cheap candidates (`meta-llama/llama-3.3-70b-instruct`, `mistralai/mistral-small-3.2-24b-instruct`, `openai/gpt-5.4-nano`, `google/gemini-2.5-flash-lite`, `qwen/qwen3-32b`, `openai/gpt-oss-120b`) on the first 45 dev tasks, and pick the cheapest one that is fast (p95 within the floor) and shows a real tier-3 accuracy gap, so routing and verification have something to do. `claude-haiku-5.5` stays in the report as the "small only" sanity row and as an alternative small tier. The large tier and the baseline do not change, so the comparison "controller vs large-always" is unaffected by this choice.
 
 **Rejected.** Making the tasks harder instead — more templates would cost hours and the held-out set would have to change again. Keeping haiku as the small tier — every ablation row would read 100 %, teaching nothing about where verification pays.
+
+## D-017 · 2026-10-31 · Small tier = `meta-llama/llama-3.3-70b-instruct`
+
+**Measured (policy S, first 45 dev tasks, logs `results/runs/bakeoff-*.jsonl`).**
+
+| candidate | accuracy | T1 / T2 / T3 | p95 | cost / task |
+|---|---:|---|---:|---:|
+| meta-llama/llama-3.3-70b-instruct | 86.7 % | 100 / 83 / 76 % | 4.7 s | $0.0003 |
+| google/gemini-2.5-flash-lite | 84.4 % | 100 / 92 / 65 % | 6.8 s | $0.0003 |
+| mistralai/mistral-small-3.2-24b-instruct | 77.8 % | 94 / 75 / 65 % | 14.7 s | $0.0002 |
+| openai/gpt-5.4-nano | 95.6 % | 100 / 100 / 88 % | 4.7 s | $0.0006 |
+| qwen/qwen3-32b | 86.7 % | 100 / 92 / 71 % | 50.7 s | $0.0005 |
+| openai/gpt-oss-120b | 95.6 % | 100 / 100 / 88 % | 8.1 s | $0.0001 |
+| anthropic/claude-haiku-5.5 (full dev) | 100 % | 100 / 100 / 100 % | 5.2 s | $0.0005 |
+
+**Decision.** Llama 3.3 70B: cheapest of the fast models with a real, tier-shaped accuracy gap (perfect on lookups, weak on tier-3 analytics), an open-weight model an enterprise could self-host, and a p95 the router can bring inside the floor by sending hard questions to the large tier. Default in `src/config.ts`; `--small` overrides it.
+
+**Rejected.** gpt-oss-120b and gpt-5.4-nano — nearly as accurate as the flagship here, so the ladder would again show nothing about verification. qwen3-32b and mistral-small — too slow (p95 50 s and 15 s). gemini-2.5-flash-lite — slower and less accurate than llama at the same price.
+
+**Note.** The baseline (P0) is unchanged; the robustness experiment R3 (model swap) will swap llama for `qwen/qwen3.7-flash` as planned.

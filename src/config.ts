@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
 
 export interface Tiers { small: string; large: string }
-export const TIERS: Tiers = { small: 'anthropic/claude-haiku-5.5', large: 'anthropic/claude-sonnet-5.5' };
+/** Small tier chosen by the bake-off in DECISIONS.md D-017 (cheap open-weight 70B class with a real accuracy gap); large tier is the flagship baseline. */
+export const TIERS: Tiers = { small: 'meta-llama/llama-3.3-70b-instruct', large: 'anthropic/claude-sonnet-5.5' };
 /** CLI flag > env (SMALL_MODEL / LARGE_MODEL, read at call time so .env is honoured) > default. */
 export function resolveTiers(override: Partial<Tiers> = {}): Tiers {
   return { small: override.small ?? process.env.SMALL_MODEL ?? TIERS.small, large: override.large ?? process.env.LARGE_MODEL ?? TIERS.large };
