@@ -40,7 +40,9 @@ describe('openrouter client', () => {
     const fetchImpl: FetchLike = async (_u, init) => { seen = JSON.parse(String(init?.body)); return ok({ choices: [{ message: { content: 'x' }, finish_reason: 'length' }], usage: { prompt_tokens: 5, completion_tokens: 900, completion_tokens_details: { reasoning_tokens: 880 }, cost: 0.001 } }); };
     const r = await createOpenRouterClient({ apiKey: 'k', fetchImpl }).chat('m', []);
     expect(r.finishReason).toBe('length'); expect(r.reasoningTokens).toBe(880);
-    expect(seen.reasoning).toEqual({ enabled: false }); expect(seen.max_tokens).toBeGreaterThanOrEqual(1500);
+    expect(seen.reasoning).toEqual({ effort: 'low' }); expect(seen.max_tokens).toBeGreaterThanOrEqual(1500);
+    await createOpenRouterClient({ apiKey: 'k', fetchImpl, reasoningEffort: 'none' }).chat('m', []);
+    expect(seen.reasoning).toEqual({ enabled: false });
   });
   it('fails loudly instead of recording zero cost for an unpriced model without usage.cost', async () => {
     const fetchImpl: FetchLike = async () => ok({ choices: [{ message: { content: 'x' } }], usage: { prompt_tokens: 10, completion_tokens: 1 } });

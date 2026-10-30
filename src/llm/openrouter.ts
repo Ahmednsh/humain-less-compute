@@ -10,6 +10,8 @@ export interface OpenRouterOptions {
   maxAttempts?: number;
   backoffMs?: number;
   maxTokens?: number;
+  /** OpenRouter unified reasoning effort. Claude 5.5 models refuse `enabled: false` ("Reasoning is mandatory"), so the default is the cheapest allowed level. */
+  reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';
 }
 
 const URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -32,6 +34,8 @@ export function createOpenRouterClient(o: OpenRouterOptions): LlmClient {
   const backoff = o.backoffMs ?? 1000;
   const timeoutMs = o.timeoutMs ?? 60_000;
   const maxTokens = o.maxTokens ?? 1500;
+  const effort = o.reasoningEffort ?? (process.env.REASONING_EFFORT as OpenRouterOptions['reasoningEffort']) ?? 'low';
+  const reasoning = effort === 'none' ? { enabled: false } : { effort };
 
   const once = async (model: string, messages: ChatMessage[]): Promise<LlmResponse> => {
     const ctl = new AbortController();
@@ -49,8 +53,8 @@ export function createOpenRouterClient(o: OpenRouterOptions): LlmClient {
             'HTTP-Referer': 'https://github.com/Ahmednsh/humain-less-compute',
             'X-Title': 'humain-less-compute',
           },
-          // reasoning disabled: hidden reasoning tokens would be drawn from max_tokens and billed without appearing in `content`
-          body: JSON.stringify({ model, messages, temperature: 0, max_tokens: maxTokens, usage: { include: true }, reasoning: { enabled: false } }),
+          // hidden reasoning tokens are billed and drawn from max_tokens; keep effort low and record them (reasoningTokens)
+          body: JSON.stringify({ model, messages, temperature: 0, max_tokens: maxTokens, usage: { include: true }, reasoning }),
         });
       } catch (e) {
         if ((e as Error).name === 'AbortError') throw new Transient(`timeout after ${timeoutMs} ms`);
