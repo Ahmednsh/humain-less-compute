@@ -1,9 +1,9 @@
 import { schemaToDdl, type SchemaInfo } from '../data/db.js';
 import { glossaryFor } from './glossary.js';
-import { FEWSHOTS } from './fewshots.js';
+import { FEWSHOTS, type FewShot } from './fewshots.js';
 
 export type ContextMode = 'full' | 'pruned';
-export interface AgentContext { mode: ContextMode; ddl: string; tables: string[]; glossary: string; fewshots: { q: string; sql: string }[] }
+export interface AgentContext { mode: ContextMode; ddl: string; tables: string[]; glossary: string; fewshots: FewShot[] }
 
 /** Trigger words (EN + AR) per table, beyond the table's own name and column names. */
 export const SYNONYMS: Record<string, string[]> = {
@@ -72,7 +72,7 @@ function shortestPath(adj: Map<string, Set<string>>, from: string, to: string): 
   return path;
 }
 
-function pickFewshots(question: string, k: number): { q: string; sql: string }[] {
+function pickFewshots(question: string, k: number): FewShot[] {
   const toks = new Set(tokenize(question).filter(t => t.length > 2));
   return FEWSHOTS
     .map(f => ({ f, score: tokenize(f.q).filter(t => t.length > 2 && toks.has(t)).length }))

@@ -19,7 +19,7 @@ Rules:
 export function fewshotMessages(ctx: AgentContext): ChatMessage[] {
   return ctx.fewshots.flatMap(f => [
     { role: 'user' as const, content: f.q },
-    { role: 'assistant' as const, content: JSON.stringify({ sql: f.sql, answer_shape: /^SELECT COUNT|AS n\b|AS revenue|AS avg|LIMIT 1$/.test(f.sql) && !/LIMIT [2-9]/.test(f.sql) ? 'scalar' : 'list', confidence: 0.95 }) },
+    { role: 'assistant' as const, content: JSON.stringify({ sql: f.sql, answer_shape: f.shape, confidence: 0.95 }) },
   ]);
 }
 
