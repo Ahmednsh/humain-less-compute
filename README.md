@@ -14,7 +14,24 @@ Everything is judged on **cost per successful task**, under explicit **accuracy 
 
 ## Status
 
-Day 0 — repository scaffold. No code yet. See [DECISIONS.md](DECISIONS.md) for the decision log.
+Day 1 — harness, data, task templates, controller and CLI implemented with tests; waiting on the first real (paid) runs. See [DECISIONS.md](DECISIONS.md) for the decision log and `docs/superpowers/` for the spec and plan.
+
+## Quick start
+
+```bash
+npm install
+npm test                                   # unit + component tests (no API key needed)
+npm run gen:db                             # deterministic 12-table company database → data/company.sqlite
+npm run gen:tasks                          # 150 dev tasks with exact gold answers → data/dev.jsonl
+npx tsx scripts/pruner-recall.ts           # does the context pruner send every table the gold SQL needs?
+npm run cli -- eval --policy P0 --tasks data/dev.jsonl --db data/company.sqlite      # baseline (needs .env)
+npm run cli -- eval --policy P3 --tasks data/dev.jsonl --db data/company.sqlite      # full system
+npm run cli -- report --runs results/runs/<a>.jsonl,results/runs/<b>.jsonl --baseline P0 --html results/report.html
+```
+
+Policies: `P0` large model always (baseline) · `S` small only · `P1` + router · `P2` + context pruning · `P3` + selective verification (full system) · `V` verify always. Every real run appends a row to `results/EXPERIMENTS.md` and leaves its per-task JSONL log in `results/runs/`.
+
+`--mock` runs the whole pipeline with a scripted model (used by CI); `--holdout` task generation refuses any output path inside the repository.
 
 ## Models
 

@@ -26,3 +26,8 @@ tmp/
 
 # sdd scratch
 .superpowers/
+
+# generated data (regenerate with npm run gen:db / gen:tasks)
+data/*.sqlite
+data/*.jsonl
+results/runs/smoke.jsonl

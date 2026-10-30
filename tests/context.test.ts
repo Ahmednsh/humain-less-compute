@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { openDb, createSchema, introspectSchema } from '../src/data/db.js';
-import { selectTables, matchTables, buildContext } from '../src/agent/context.js';
+import { selectTables, matchTables, buildContext, buildValueIndex } from '../src/agent/context.js';
 import { FEWSHOTS } from '../src/agent/fewshots.js';
 import { runReadOnly } from '../src/data/db.js';
 import { fixtureDb } from './fixtures/fixture.js';
@@ -12,6 +12,13 @@ describe('context', () => {
     const t = selectTables('What was the total delivered revenue for the Asir region in Q2 2025?', schema());
     for (const n of ['orders', 'order_items', 'customers', 'cities', 'regions']) expect(t).toContain(n);
     expect(t).not.toContain('support_tickets'); expect(t).not.toContain('payments');
+  });
+  it('links known dimension values to their tables', () => {
+    const db = fixtureDb(); const s = introspectSchema(db); const values = buildValueIndex(db);
+    const q = 'How much revenue did delivered orders from customers in North generate during Q2 2025?';
+    expect(selectTables(q, s)).not.toContain('regions');
+    expect(selectTables(q, s, values)).toEqual(expect.arrayContaining(['regions', 'cities', 'customers', 'orders', 'order_items']));
+    expect(buildContext('How many products are in Dairy?', s, 'pruned', values).tables).toEqual(['categories', 'products']);
   });
   it('connects disconnected tables', () => {
     const t = selectTables('Which employee has the most refunds?', schema());

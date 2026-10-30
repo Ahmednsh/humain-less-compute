@@ -6,6 +6,7 @@ import type { LlmClient } from '../llm/types.js';
 import type { Policy, Thresholds, Tiers } from '../config.js';
 import type { Answer, Task } from '../tasks/types.js';
 import { runTask, type TaskOutcome } from '../agent/controller.js';
+import { buildValueIndex } from '../agent/context.js';
 import { scoreAnswer } from './score.js';
 import { semaphore } from '../util/semaphore.js';
 
@@ -63,11 +64,12 @@ export async function runEval(a: RunEvalArgs): Promise<RunRow[]> {
   const existing = readRunRows(a.outPath);
   const done = new Map(existing.map(r => [r.taskId, r]));
   const limit = semaphore(a.concurrency ?? 4);
+  const values = buildValueIndex(a.db);
 
   const fresh = await Promise.all(a.tasks.filter(t => !done.has(t.id)).map(task => limit(async () => {
     let row: RunRow;
     try {
-      const o = await runTask({ task: { id: task.id, question: task.question }, policy: a.policy, client: a.client, db: a.db, schema: a.schema, tiers: a.tiers, thresholds: a.thresholds });
+      const o = await runTask({ task: { id: task.id, question: task.question }, policy: a.policy, client: a.client, db: a.db, schema: a.schema, tiers: a.tiers, thresholds: a.thresholds, values });
       row = toRow(runId, a.policyName, task, o);
     } catch (e) {
       row = errorRow(runId, a.policyName, task, (e as Error).message);

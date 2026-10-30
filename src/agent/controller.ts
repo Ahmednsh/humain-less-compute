@@ -3,7 +3,7 @@ import type { SchemaInfo } from '../data/db.js';
 import type { LlmClient } from '../llm/types.js';
 import { THRESHOLDS, type Policy, type Thresholds, type Tiers } from '../config.js';
 import type { Answer } from '../tasks/types.js';
-import { buildContext, type AgentContext } from './context.js';
+import { buildContext, type AgentContext, type ValueIndex } from './context.js';
 import { runAttempt } from './executor.js';
 import { route } from './router.js';
 import { applyCorrection, freeChecks, llmVerify, shouldVerify, type VerifyReason } from './verifier.js';
@@ -38,6 +38,8 @@ export interface RunTaskArgs {
   schema: SchemaInfo;
   tiers: Tiers;
   thresholds?: Thresholds;
+  /** Known dimension values for pruning (from buildValueIndex); optional. */
+  values?: ValueIndex;
 }
 
 interface Stage { attempt: AttemptResult; ok: boolean; reason: string | null; verified: boolean; reasons: VerifyReason[]; verdict: 'correct' | 'incorrect' | null; corrected: boolean; answer: Answer | null; calls: CallRecord[] }
@@ -48,7 +50,7 @@ export async function runTask(a: RunTaskArgs): Promise<TaskOutcome> {
   const t0 = performance.now();
   const decision = route(a.task.question, a.schema, T.routerHi);
   const firstTier: 'small' | 'large' = a.policy.tier === 'auto' ? decision.tier : a.policy.tier;
-  const ctx = buildContext(a.task.question, a.schema, a.policy.prune ? 'pruned' : 'full');
+  const ctx = buildContext(a.task.question, a.schema, a.policy.prune ? 'pruned' : 'full', a.values);
   const money = decision.features.money;
 
   const stage = async (tier: 'small' | 'large'): Promise<Stage> => {
