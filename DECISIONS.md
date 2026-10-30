@@ -52,3 +52,51 @@ Format per entry: **Decision** — what was chosen. **Why** — the reasons. **R
 - The final held-out test set lives **outside this repository**, is never read during development and is never tuned against. Thresholds are set on a development split only.
 
 **Why.** Judges do not run code; they evaluate the submitted evidence. Criterion 1 is explicitly about unseen/held-out cases and criterion 3 about reproducible, component-validated improvements.
+
+## D-006 · 2026-10-30 · Decisions taken autonomously under `/goal`
+
+**Decision.** The participant set `/goal` ("execute Challenge 2 professionally, precisely, without errors, using superpowers") and is not available to answer design questions. Design decisions D-007 onward were taken by the assistant, each with the alternatives recorded, and are open to override. Where the participant left a question unanswered, the assumption is stated.
+
+**Assumptions.** Budget ≤ USD 15 total on OpenRouter. Slides in English (video narration language left to the participant). No GPU or local models.
+
+## D-007 · 2026-10-30 · Task domain: NL → SQL analytics agent over a synthetic company database
+
+**Decision.** The system answers natural-language analytics questions over a 12-table synthetic SQLite database by generating and executing SQL.
+
+**Why.** Exact, free correctness oracle (gold SQL run on the same DB); fully deterministic synthetic data from a seed; a wide, controllable difficulty spread so routing has something to route; a schema large enough that context pruning is a real saving; SQL execution doubles as a free first-stage verifier; a product every judge understands.
+
+**Rejected.** Structured extraction from synthetic business documents — needs an LLM to render records into prose, which risks label noise and adds cost, and context pruning would be artificial. Code tasks with unit tests — authoring diverse problems plus sandboxing generated code is too much for two days, and public benchmarks raise contamination and licence questions.
+
+## D-008 · 2026-10-30 · Model tiers: `anthropic/claude-haiku-5.5` (small) and `anthropic/claude-sonnet-5.5` (large)
+
+**Decision.** Two tiers from the same vendor family, prices from OpenRouter's public model list on 2026-10-30: small 0.10/0.50 USD per M tokens, large 2.00/10.00 (≈20× ratio). Robustness experiment R3 swaps the small tier for `qwen/qwen3.7-flash`.
+
+**Why.** Same family keeps the comparison about size, not ecosystem or tokenizer; both ids are current and cheap enough that a full dev run costs about USD 1–2.
+
+**Rejected.** `openai/gpt-5.4` + `gpt-5.4-nano` — comparable, kept as fallback in config. Gemini 3.x pro/flash-lite — preview status. A third "medium" tier — adds cascade complexity without changing the story.
+
+## D-009 · 2026-10-30 · Stack: TypeScript on Node 26 with built-in `node:sqlite`
+
+**Decision.** TypeScript (strict), Node 26, `node:sqlite`, `zod`, `vitest`, `tsx`; plain `fetch` for OpenRouter, no SDK.
+
+**Why.** The participant's primary stack; `node:sqlite` removes the only native dependency; a hand-written client exposes OpenRouter's `usage.cost` and generation ids directly. All dependencies are MIT/Apache-2.0.
+
+**Rejected.** Python — faster for statistics, but not the participant's primary stack and the statistics needed are trivial. `better-sqlite3` — native build, unnecessary on Node 26. OpenAI SDK — hides usage fields and adds a dependency.
+
+## D-010 · 2026-10-30 · Metrics and floors, fixed before any optimisation run
+
+**Decision.** Headline metric: cost per successful task (total USD ÷ correct answers; failed and escalated attempts included). Floors relative to the P0 baseline on the same task set: accuracy ≥ baseline − 2.0 pp; p95 latency ≤ 1.25 × baseline p95. Secondary: cost per task, tokens per task, accuracy per difficulty tier, escalation, verification and repair rates.
+
+**Why.** These are the challenge's own words ("cost per successful task", "accuracy and latency floors"); fixing them before the first optimisation run prevents moving the goalposts.
+
+## D-011 · 2026-10-30 · Held-out protocol
+
+**Decision.** Held-out set generated once with a seed not shown to the assistant, into a directory outside the repository, including six `holdoutOnly` templates never used in dev generation. Nobody opens the file; the harness reads it; one final run per reported policy after thresholds are frozen; only aggregates are reported.
+
+**Why.** The participant's rule ("the held-out set lives outside this repo, never read, never tuned against") and judging criterion 1 (unseen cases).
+
+## D-012 · 2026-10-30 · Ablation ladder and robustness experiments
+
+**Decision.** Policies P0 baseline (large, full context, no verify), S small-only, P1 +router, P2 +prune, P3 +selective verify (full system), V verify-always. Robustness: R1 schema rename, R2 Arabic questions, R3 small-model swap, each P0 vs P3 with frozen thresholds.
+
+**Why.** One row per component is the evidence criterion 3 asks for; S and V exist to show that the naive extremes (always cheap, always verify) lose. The robustness set targets criterion 2 with changes a real deployment sees: schema drift, language shift, model churn.
