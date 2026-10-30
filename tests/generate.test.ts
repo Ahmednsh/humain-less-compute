@@ -32,6 +32,12 @@ describe('generateCompany', () => {
     expect(q(db, 'SELECT COUNT(DISTINCT status) c FROM orders').c).toBe(5);
     expect(q(db, 'SELECT COUNT(DISTINCT substr(order_date,1,7)) c FROM orders').c).toBeGreaterThanOrEqual(30);
   });
+  it('employee and product names are unique', () => {
+    const db = openDb(':memory:'); createSchema(db);
+    generateCompany(db, 6, { ...small, employees: 60, products: 200, orders: 50 });
+    expect(q(db, 'SELECT COUNT(*) - COUNT(DISTINCT name) c FROM employees').c).toBe(0);
+    expect(q(db, 'SELECT COUNT(*) - COUNT(DISTINCT name) c FROM products').c).toBe(0);
+  });
   it('refunds are priced from the returned item', () => {
     const { db } = build(4);
     const bad = q(db, 'SELECT COUNT(*) c FROM returns r JOIN order_items oi ON oi.id = r.order_item_id WHERE r.refund_amount > oi.quantity * oi.unit_price + 0.01').c;

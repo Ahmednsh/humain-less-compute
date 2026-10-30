@@ -44,6 +44,17 @@ export function generateCompany(db: DatabaseSync, seed: number, scale: Partial<S
   const S = { ...DEFAULT, ...scale };
   const rng = createRng(seed);
   const counts: Counts = {};
+  /** Deterministic unique names: retry a few times, then suffix with a counter. */
+  const uniqueNamer = () => {
+    const seen = new Set<string>();
+    return (make: () => string): string => {
+      let name = make();
+      for (let i = 0; i < 20 && seen.has(name); i++) name = make();
+      if (seen.has(name)) { let k = 2; while (seen.has(`${name} ${k}`)) k++; name = `${name} ${k}`; }
+      seen.add(name);
+      return name;
+    };
+  };
   const ins = (table: string, cols: string[]) =>
     db.prepare(`INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`);
 
@@ -55,9 +66,10 @@ export function generateCompany(db: DatabaseSync, seed: number, scale: Partial<S
   // products: category round-robin so every category is populated
   const p = ins('products', ['sku', 'name', 'category_id', 'unit_price', 'cost', 'active']);
   const prices: number[] = [];
+  const productName = uniqueNamer();
   for (let i = 1; i <= S.products; i++) {
     const ci = (i - 1) % CATEGORIES.length;
-    const name = `${rng.pick(PRODUCT_WORDS[CATEGORIES[ci]!]!)} ${rng.pick(VARIANTS)}`;
+    const name = productName(() => `${rng.pick(PRODUCT_WORDS[CATEGORIES[ci]!]!)} ${rng.pick(VARIANTS)}`);
     const price = money(rng.int(3, 400) * (0.8 + rng.next() * 0.4));
     prices.push(price);
     p.run(`SKU-${String(i).padStart(4, '0')}`, name, ci + 1, price, money(price * (0.45 + rng.next() * 0.3)), rng.chance(0.92) ? 1 : 0);
@@ -67,10 +79,11 @@ export function generateCompany(db: DatabaseSync, seed: number, scale: Partial<S
   // employees: regional managers first so manager_id references exist
   const e = ins('employees', ['name', 'role', 'city_id', 'hired_at', 'manager_id']);
   const nManagers = Math.max(2, Math.floor(S.employees / 10));
+  const employeeName = uniqueNamer();
   for (let i = 1; i <= S.employees; i++) {
     const role = i <= nManagers ? 'regional_manager' : rng.pick(['sales_rep', 'sales_rep', 'account_manager', 'support_agent']);
     const hired = Date.UTC(rng.int(2018, 2025), rng.int(0, 11), rng.int(1, 28));
-    e.run(`${rng.pick(FIRST)} ${rng.pick(LAST)}`, role, rng.int(1, CITIES.length), fmtDate(hired), i <= nManagers ? null : rng.int(1, nManagers));
+    e.run(employeeName(() => `${rng.pick(FIRST)} ${rng.pick(LAST)}`), role, rng.int(1, CITIES.length), fmtDate(hired), i <= nManagers ? null : rng.int(1, nManagers));
   }
   counts.employees = S.employees;
   const salesIds = (db.prepare("SELECT id FROM employees WHERE role IN ('sales_rep','account_manager') ORDER BY id").all() as { id: number }[]).map(x => x.id);
