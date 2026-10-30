@@ -68,6 +68,14 @@ describe('runEval', () => {
     const rows = await runEval({ runId: 'r4', policyName: 'P0', policy: POLICIES.P0, tasks, client, db, schema, tiers, outPath: out });
     expect(rows.length).toBe(2);
   });
+  it('aborts the whole run on a fatal (billing) client error without writing rows for it', async () => {
+    const db = openDb(':memory:'); createSchema(db); generateCompany(db, 1, { customers: 20, products: 10, employees: 5, orders: 100, tickets: 10 });
+    const schema = introspectSchema(db); const tasks = generateTasks(db, { seed: 1, n: 4, holdout: false, lang: 'en' });
+    const client = createMockClient(() => { throw Object.assign(new Error('OpenRouter HTTP 402: credits'), { fatal: true }); });
+    const out = join(mkdtempSync(join(tmpdir(), 'lc-')), 'run.jsonl');
+    await expect(runEval({ runId: 'r5', policyName: 'S', policy: POLICIES.S, tasks, client, db, schema, tiers, outPath: out })).rejects.toThrow(/402/);
+    expect(existsSync(out) ? readFileSync(out, 'utf8').trim() : '').toBe('');
+  });
   it('records a client failure as an error row instead of aborting the run', async () => {
     const db = openDb(':memory:'); createSchema(db); generateCompany(db, 1, { customers: 20, products: 10, employees: 5, orders: 100, tickets: 10 });
     const schema = introspectSchema(db); const tasks = generateTasks(db, { seed: 1, n: 3, holdout: false, lang: 'en' });

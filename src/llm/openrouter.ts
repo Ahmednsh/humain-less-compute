@@ -66,7 +66,10 @@ export function createOpenRouterClient(o: OpenRouterOptions): LlmClient {
       const latencyMs = performance.now() - t0;
       if (!res.ok) {
         const msg = typeof j.error === 'string' ? j.error : j.error?.message ?? JSON.stringify(j);
-        throw new Error(`OpenRouter HTTP ${res.status}: ${msg}`);
+        const err = new Error(`OpenRouter HTTP ${res.status}: ${msg}`) as Error & { fatal?: boolean };
+        // 401/402/403: the key or the balance is the problem, not this request — every further call would fail too.
+        if (res.status === 401 || res.status === 402 || res.status === 403) err.fatal = true;
+        throw err;
       }
       const u = j.usage ?? {};
       const pt = u.prompt_tokens ?? 0, ct = u.completion_tokens ?? 0;

@@ -48,6 +48,11 @@ describe('openrouter client', () => {
     const fetchImpl: FetchLike = async () => ok({ choices: [{ message: { content: 'x' } }], usage: { prompt_tokens: 10, completion_tokens: 1 } });
     await expect(createOpenRouterClient({ apiKey: 'k', fetchImpl }).chat('vendor/unknown-model', [])).rejects.toThrow(/cost/i);
   });
+  it('treats 402 (insufficient credits) as fatal: no retry, marked so the run aborts', async () => {
+    let n = 0; const fetchImpl: FetchLike = async () => { n++; return ok({ error: { message: 'This request would exceed your credits' } }, 402); };
+    const err = (await createOpenRouterClient({ apiKey: 'k', fetchImpl, backoffMs: 1 }).chat('m', []).catch(e => e as Error & { fatal?: boolean })) as Error & { fatal?: boolean };
+    expect(err).toBeInstanceOf(Error); expect(err.fatal).toBe(true); expect(err.message).toMatch(/402/); expect(n).toBe(1);
+  });
   it('does not retry a 400 and surfaces the body', async () => {
     let n = 0; const fetchImpl: FetchLike = async () => { n++; return ok({ error: { message: 'bad model' } }, 400); };
     await expect(createOpenRouterClient({ apiKey: 'k', fetchImpl, backoffMs: 1 }).chat('m', [])).rejects.toThrow(/400.*bad model/);

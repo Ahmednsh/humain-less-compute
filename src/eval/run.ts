@@ -92,6 +92,7 @@ export async function runEval(a: RunEvalArgs): Promise<RunRow[]> {
       const o = await runTask({ task: { id: task.id, question: task.question }, policy: a.policy, client: a.client, db: a.db, schema: a.schema, tiers: a.tiers, thresholds, values, exec: a.exec });
       row = toRow(runId, a, thresholds, task, o);
     } catch (e) {
+      if ((e as { fatal?: boolean }).fatal) throw e; // abort the whole run; nothing is logged for this task so a resume retries it
       row = errorRow(runId, a, thresholds, task, (e as Error).message);
     }
     appendFileSync(a.outPath, JSON.stringify(row) + '\n');

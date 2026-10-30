@@ -98,6 +98,7 @@ export async function runTask(a: RunTaskArgs): Promise<TaskOutcome> {
     stages.push(await stage(firstTier));
     if (!stages[0]!.ok && firstTier === 'small' && a.policy.tier === 'auto') { escalated = true; stages.push(await stage('large')); }
   } catch (e) {
+    if ((e as { fatal?: boolean }).fatal) throw e; // billing/auth: abort the run, do not record a task failure
     error = `client failure: ${(e as Error).message}`;
   }
 
