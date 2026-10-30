@@ -11,7 +11,7 @@ export const SYNONYMS: Record<string, string[]> = {
   order_items: ['revenue', 'sales', 'units', 'sold', 'items', 'quantity', 'margin', 'discount', 'line', 'lines', 'aov', 'order value', 'إيراد', 'إيرادات', 'مبيعات', 'وحدات', 'كمية', 'هامش', 'خصم', 'بنود', 'عناصر', 'قيمة طلب'],
   returns: ['return', 'returned', 'returns', 'refund', 'refunds', 'مرتجع', 'مرتجعة', 'إرجاع', 'مسترد', 'مستردة', 'استرداد'],
   support_tickets: ['ticket', 'tickets', 'support', 'resolution', 'resolved', 'unresolved', 'تذكرة', 'تذاكر', 'دعم', 'حل'],
-  shipments: ['ship', 'shipped', 'shipment', 'shipments', 'deliver', 'delivery', 'carrier', 'شحن', 'شحنة', 'شحنات', 'توصيل', 'تسليم', 'ناقل', 'نقلتها'],
+  shipments: ['ship', 'shipped', 'shipment', 'shipments', 'deliver', 'delivery', 'carrier', 'شحن', 'شحنة', 'شحنات', 'مشحونة', 'توصيل', 'تسليم', 'ناقل', 'نقلتها'],
   payments: ['payment', 'payments', 'paid', 'method', 'card', 'cash', 'wallet', 'bank transfer', 'دفع', 'دفعات', 'دفعة', 'مدفوع'],
   employees: ['employee', 'employees', 'rep', 'reps', 'manager', 'managers', 'staff', 'sales rep', 'account manager', 'support agent', 'handled', 'موظف', 'موظفين', 'موظفون', 'مندوب', 'مدير', 'مديرين', 'فريق'],
   customers: ['customer', 'customers', 'client', 'clients', 'segment', 'wholesale', 'retail', 'enterprise', 'registered', 'عميل', 'عملاء', 'شريحة', 'الجملة', 'التجزئة', 'الشركات'],
@@ -19,11 +19,45 @@ export const SYNONYMS: Record<string, string[]> = {
   categories: ['category', 'categories', 'فئة', 'فئات'],
   regions: ['region', 'regions', 'منطقة', 'مناطق'],
   cities: ['city', 'cities', 'located', 'based in', 'مدينة', 'مدن'],
-  orders: ['order', 'orders', 'ordered', 'channel', 'status', 'cancelled', 'cancellation', 'delivered', 'pending', 'aov', 'order value', 'طلب', 'طلبات', 'طلباً', 'قناة', 'حالة', 'ملغاة', 'إلغاء', 'مسلّمة', 'مسلمة'],
+  orders: ['order', 'orders', 'ordered', 'channel', 'status', 'cancelled', 'cancellation', 'delivered', 'pending', 'aov', 'order value', 'طلب', 'طلبات', 'طلبا', 'قناة', 'حالة', 'ملغاة', 'إلغاء', 'مسلمة'],
 };
 const FALLBACK = ['customers', 'order_items', 'orders', 'products'];
 
-export const tokenize = (q: string): string[] => (q.toLowerCase().match(/[\p{L}\p{N}_]+/gu) ?? []).map(stripArabicPrefix);
+/**
+ * Column signatures that identify a concept when a table has been renamed (schema drift).
+ * A table inherits the synonyms of the concept whose name tokens or signature columns it matches.
+ */
+const CONCEPT_COLUMNS: Record<string, string[]> = {
+  order_items: ['quantity', 'discount_pct', 'discount_percent'],
+  orders: ['channel', 'status', 'order_date', 'placed_on'],
+  customers: ['segment', 'customer_tier'],
+  products: ['sku', 'unit_price', 'price_per_unit', 'cost'],
+  employees: ['role', 'hired_at', 'manager_id'],
+  payments: ['paid_at', 'method', 'amount'],
+  shipments: ['shipped_at', 'delivered_at', 'carrier'],
+  returns: ['returned_at', 'refund_amount', 'reason'],
+  support_tickets: ['opened_at', 'closed_at', 'priority', 'topic'],
+  regions: [], cities: ['region_id'], categories: [],
+};
+
+/** Which synonym concept a (possibly renamed) table belongs to. Exact name wins; else name-token overlap, then column signature. */
+export function conceptOf(t: { name: string; columns: { name: string }[] }): string | null {
+  if (SYNONYMS[t.name]) return t.name;
+  const nameToks = new Set(t.name.toLowerCase().split('_'));
+  const cols = new Set(t.columns.map(c => c.name.toLowerCase()));
+  let best: string | null = null, bestScore = 0;
+  for (const concept of Object.keys(SYNONYMS)) {
+    const synToks = new Set([...concept.split('_'), ...(SYNONYMS[concept] ?? []).flatMap(s => s.split(' '))]);
+    const nameScore = [...nameToks].filter(tok => synToks.has(tok)).length;
+    const colScore = (CONCEPT_COLUMNS[concept] ?? []).filter(c => cols.has(c)).length * 2;
+    const score = nameScore + colScore;
+    if (score > bestScore) { bestScore = score; best = concept; }
+  }
+  return bestScore > 0 ? best : null;
+}
+
+const ARABIC_MARKS = /[ً-ْٰـ]/g;
+export const tokenize = (q: string): string[] => (q.toLowerCase().replace(ARABIC_MARKS, '').match(/[\p{L}\p{N}_]+/gu) ?? []).map(stripArabicPrefix);
 /** Arabic questions glue "ال/و/ب/ل/ف" to the word; match both forms. */
 function stripArabicPrefix(t: string): string { return t.replace(/^(?:و|ف|ب|ل|ك)?(?:ال)?(?=[؀-ۿ]{3,})/, ''); }
 
@@ -43,14 +77,15 @@ export function buildValueIndex(db: DatabaseSync): ValueIndex {
 
 /** Lexical stage: tables whose name, columns, synonyms or known values appear in the question. No FK closure. */
 export function matchTables(question: string, schema: SchemaInfo, values?: ValueIndex): string[] {
-  const q = question.toLowerCase();
+  const q = question.toLowerCase().replace(ARABIC_MARKS, '');
   const toks = new Set(tokenize(question));
   const hit = new Set<string>();
   if (values) for (const [v, tables] of values) if (q.includes(v)) for (const t of tables) hit.add(t);
   for (const t of schema.tables) {
-    const words = [t.name, t.name.replace(/_/g, ' '), ...t.columns.filter(c => !/^id$|_id$/.test(c.name)).map(c => c.name), ...(SYNONYMS[t.name] ?? [])];
+    const concept = conceptOf(t);
+    const words = [t.name, t.name.replace(/_/g, ' '), ...t.columns.filter(c => !/^id$|_id$/.test(c.name)).map(c => c.name), ...(concept ? SYNONYMS[concept] ?? [] : [])];
     for (const w of words) {
-      const lw = w.toLowerCase();
+      const lw = w.toLowerCase().replace(ARABIC_MARKS, '');
       if (lw.includes(' ') ? q.includes(lw) : toks.has(lw) || toks.has(stripArabicPrefix(lw))) { hit.add(t.name); break; }
     }
   }

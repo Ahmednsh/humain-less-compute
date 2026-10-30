@@ -4,6 +4,7 @@ import { selectTables, matchTables, buildContext, buildValueIndex } from '../src
 import { FEWSHOTS } from '../src/agent/fewshots.js';
 import { runReadOnly } from '../src/data/db.js';
 import { fixtureDb } from './fixtures/fixture.js';
+import { applyRenameToDb, RENAME_MAP } from '../src/data/rename.js';
 
 const schema = () => { const d = openDb(':memory:'); createSchema(d); return introspectSchema(d); };
 
@@ -19,6 +20,18 @@ describe('context', () => {
     expect(selectTables(q, s)).not.toContain('regions');
     expect(selectTables(q, s, values)).toEqual(expect.arrayContaining(['regions', 'cities', 'customers', 'orders', 'order_items']));
     expect(buildContext('How many products are in Dairy?', s, 'pruned', values).tables).toEqual(['categories', 'products']);
+  });
+  it('survives schema drift: renamed tables inherit their concept synonyms', () => {
+    const d = openDb(':memory:'); createSchema(d);
+    applyRenameToDb(d, RENAME_MAP); const s = introspectSchema(d);
+    const t = selectTables('What was the total delivered revenue from wholesale customers in 2025?', s);
+    expect(t).toEqual(expect.arrayContaining(['clients', 'sales_orders', 'sales_order_lines']));
+    expect(t).not.toContain('payments');
+  });
+  it('ignores arabic diacritics when matching', () => {
+    const t = selectTables('كم عدد العملاء الذين قدّموا طلباً واحداً على الأقل في كلٍّ من عامي 2024 و2025؟', schema());
+    expect(t).toEqual(expect.arrayContaining(['customers', 'orders']));
+    expect(selectTables('أي شهر سجّل أعلى معدل إرجاع للطلبات المشحونة؟', schema())).toContain('shipments');
   });
   it('connects disconnected tables', () => {
     const t = selectTables('Which employee has the most refunds?', schema());

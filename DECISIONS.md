@@ -114,3 +114,13 @@ Format per entry: **Decision** — what was chosen. **Why** — the reasons. **R
 **Decision.** `gen-tasks --holdout` was run once with a seed produced by `crypto.randomInt` and written only to `C:\D\My Claude Projects\humain-holdout\seed.txt` (never printed); output `holdout.jsonl` (150 tasks, 50/50/50, includes the six holdout-only templates) lives in that directory outside the repository. The CLI refuses `--holdout` for any path inside the repository (tested). Nothing from the file has been or will be read; one run each of P0 and P3 will be made after thresholds are frozen.
 
 **Why.** D-011 and judging criterion 1.
+
+## D-015 · 2026-10-30 · Pruner made drift-tolerant after the robustness sets exposed it (before any paid run)
+
+**Finding.** Measuring pruner recall on the robustness task sets (zero LLM cost) showed the context pruner was bound to the original table names: on the renamed schema (R1) only 46.7 % of tasks received every table their gold SQL needs; on the Arabic set (R2) 92.2 % (diacritics such as tanween broke token matching).
+
+**Decision.** (1) A renamed table inherits the synonyms of the concept it matches, decided by name-token overlap and a column-signature table (`quantity` → order lines, `channel`/`status` → orders, …). (2) Arabic diacritics and tatweel are stripped before matching. Recall after the change: dev 100 %, R1 100 %, R2 100 %, R3 100 %, with ~2.5 of 12 tables sent on average.
+
+**Why.** Criterion 2 (robustness to changed inputs) and criterion 3 (component validation). The fix was motivated by measurement, not by the paid runs, and was made before thresholds were frozen; the held-out set was not involved.
+
+**Rejected.** Re-generating R1 with a "friendlier" rename map — would have hidden a real weakness.
