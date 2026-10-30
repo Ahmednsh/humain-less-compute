@@ -77,8 +77,11 @@ export async function runTask(a: RunTaskArgs): Promise<TaskOutcome> {
     const s: Stage = { attempt, ok: free.ok, reason: free.reason, verified: false, reasons: [], verdict: null, corrected: false, verifierRejected: false, answer: attempt.answer, sql: attempt.sql };
     if (!free.ok || !attempt.sql || !attempt.rows) return s;
 
+    // Selective mode verifies only what the small tier produced: the verifier is the large model, so checking
+    // the large tier's own answers is self-verification at the most expensive price (measured in iteration 1:
+    // 52 of 63 verify calls and 85 % of verify spend went to large-route tasks and fixed one answer).
     const want = a.policy.verify === 'always' ? { verify: true, reasons: [] as VerifyReason[] }
-      : a.policy.verify === 'selective' ? shouldVerify({ confidence: attempt.confidence, sql: attempt.sql, money, thresholds: T })
+      : a.policy.verify === 'selective' && tier === 'small' ? shouldVerify({ confidence: attempt.confidence, sql: attempt.sql, money, thresholds: T })
       : { verify: false, reasons: [] as VerifyReason[] };
     if (!want.verify) return s;
 

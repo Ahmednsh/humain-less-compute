@@ -52,13 +52,22 @@ describe('context', () => {
     const full = buildContext(q, s, 'full'), pruned = buildContext(q, s, 'pruned');
     expect(full.tables.length).toBe(12); expect(pruned.tables).toEqual(['customers']);
     expect(pruned.ddl.length * 3).toBeLessThan(full.ddl.length);
-    expect(full.fewshots.length).toBe(8); expect(pruned.fewshots.length).toBeLessThanOrEqual(2);
+    expect(full.fewshots.length).toBe(9); expect(pruned.fewshots.length).toBeLessThanOrEqual(2);
     expect(full.glossary.length).toBeGreaterThan(pruned.glossary.length);
   });
   it('pruned glossary keeps the lines the question needs', () => {
     const s = schema();
     expect(buildContext('What was the net revenue of Rep A in 2025?', s, 'pruned').glossary).toMatch(/net revenue/i);
     expect(buildContext('How many cities are in Asir?', s, 'pruned').glossary).not.toMatch(/net revenue/i);
+  });
+  it('pruned glossary teaches half-open period filters for quarter/half questions', () => {
+    const g = buildContext('How many support tickets with high priority were opened in Q3 2025?', schema(), 'pruned').glossary;
+    expect(g).toMatch(/Q3 2025 = col >= '2025-07-01' AND col < '2025-10-01'/); expect(g).toMatch(/Never chain months with OR/);
+    expect(buildContext('كم عدد التذاكر في النصف الأول من 2025؟', schema(), 'pruned').glossary).toMatch(/H1 2024/);
+  });
+  it('pruned few-shots include the quarter-range example for a quarter question', () => {
+    const f = buildContext('How many support tickets with high priority were opened in Q3 2025?', schema(), 'pruned').fewshots;
+    expect(f.some(x => x.sql.includes(">= '2025-04-01' AND paid_at < '2025-07-01'"))).toBe(true);
   });
   it('every few-shot SQL runs on the fixture', () => {
     const db = fixtureDb();

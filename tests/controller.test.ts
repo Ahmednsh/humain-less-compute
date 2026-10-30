@@ -28,12 +28,15 @@ describe('controller', () => {
     expect(o.route).toBe('small'); expect(client.calls.map(c => c.model)).toEqual([tiers.small]);
     expect(o.verified).toBe(false); expect(o.tablesSent).toEqual(['customers']); expect(o.answer).toBe(20); expect(o.routerScore).toBeLessThan(THRESHOLDS.routerHi);
   });
-  it('P3 sends a hard question straight to the large model and verifies it', async () => {
+  it('P3 sends a hard question straight to the large model and does NOT self-verify it; V still does', async () => {
     const { db, schema } = setup();
     const client = createMockClient((_m, msgs) => (isVerify(msgs) ? J({ verdict: 'correct', corrected_sql: null }) : GOOD));
     const o = await runTask({ task: { id: 't', question: hard }, policy: POLICIES.P3, client, db, schema, tiers });
-    expect(o.route).toBe('large'); expect(o.verified).toBe(true); expect(o.verdict).toBe('correct'); expect(o.escalated).toBe(false);
-    expect(client.calls.map(c => c.model)).toEqual([tiers.large, tiers.large]);
+    expect(o.route).toBe('large'); expect(o.verified).toBe(false); expect(o.escalated).toBe(false);
+    expect(client.calls.map(c => c.model)).toEqual([tiers.large]);
+    const v = createMockClient((_m, msgs) => (isVerify(msgs) ? J({ verdict: 'correct', corrected_sql: null }) : GOOD));
+    const ov = await runTask({ task: { id: 't', question: hard }, policy: POLICIES.V, client: v, db, schema, tiers });
+    expect(ov.verified).toBe(true); expect(v.calls.map(c => c.model)).toEqual([tiers.large, tiers.large]);
   });
   it('P3 escalates when the small model keeps failing and sums cost over all calls', async () => {
     const { db, schema } = setup();

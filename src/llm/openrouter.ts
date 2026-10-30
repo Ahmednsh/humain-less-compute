@@ -12,6 +12,8 @@ export interface OpenRouterOptions {
   maxTokens?: number;
   /** OpenRouter unified reasoning effort. Claude 5.5 models refuse `enabled: false` ("Reasoning is mandatory"), so the default is the cheapest allowed level. */
   reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';
+  /** OpenRouter provider routing preference; 'latency' keeps p95 stable for open models served by many providers. */
+  providerSort?: 'latency' | 'throughput' | 'price';
 }
 
 const URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -36,6 +38,7 @@ export function createOpenRouterClient(o: OpenRouterOptions): LlmClient {
   const maxTokens = o.maxTokens ?? 1500;
   const effort = o.reasoningEffort ?? (process.env.REASONING_EFFORT as OpenRouterOptions['reasoningEffort']) ?? 'low';
   const reasoning = effort === 'none' ? { enabled: false } : { effort };
+  const provider = { sort: o.providerSort ?? (process.env.PROVIDER_SORT as OpenRouterOptions['providerSort']) ?? 'latency' };
 
   const once = async (model: string, messages: ChatMessage[]): Promise<LlmResponse> => {
     const ctl = new AbortController();
@@ -54,7 +57,7 @@ export function createOpenRouterClient(o: OpenRouterOptions): LlmClient {
             'X-Title': 'humain-less-compute',
           },
           // hidden reasoning tokens are billed and drawn from max_tokens; keep effort low and record them (reasoningTokens)
-          body: JSON.stringify({ model, messages, temperature: 0, max_tokens: maxTokens, usage: { include: true }, reasoning }),
+          body: JSON.stringify({ model, messages, temperature: 0, max_tokens: maxTokens, usage: { include: true }, reasoning, provider }),
         });
       } catch (e) {
         if ((e as Error).name === 'AbortError') throw new Transient(`timeout after ${timeoutMs} ms`);

@@ -17,3 +17,5 @@ One row per real run, appended automatically by `eval`. Logs live in `results/ru
 | dev-P1-theta3 | P1 | dev | 150 | 97.3% | 98%/94%/100% | 2706 ms | 2744/150 | $0.0052 | $0.0054 | 45% | 0% | 0% | router-sweep small=meta-llama/llama-3.3-70b-instruct large=anthropic/claude-sonnet-5.5 θ=3 conc=2 |
 | dev-P1-theta5 | P1 | dev | 150 | 96.7% | 98%/92%/100% | 4844 ms | 2518/147 | $0.0033 | $0.0035 | 70% | 3% | 0% | router-sweep small=meta-llama/llama-3.3-70b-instruct large=anthropic/claude-sonnet-5.5 θ=5 conc=2 |
 | dev-P1-theta6 | P1 | dev | 150 | 96.0% | 98%/92%/98% | 8749 ms | 2471/146 | $0.0028 | $0.0029 | 77% | 4% | 0% | router-sweep small=meta-llama/llama-3.3-70b-instruct large=anthropic/claude-sonnet-5.5 θ=6 conc=2 |
+| dev-P2 | P2 | dev | 150 | 96.7% | 94%/96%/100% | 6576 ms | 876/151 | $0.0025 | $0.0026 | 52% | 0% | 0% | ladder small=meta-llama/llama-3.3-70b-instruct large=anthropic/claude-sonnet-5.5 θ=4 conc=2 |
+| dev-P3 | P3 | dev | 150 | 96.7% | 92%/98%/100% | 8288 ms | 1390/298 | $0.0050 | $0.0052 | 52% | 0% | 42% | ladder small=meta-llama/llama-3.3-70b-instruct large=anthropic/claude-sonnet-5.5 θ=4 conc=2 |
