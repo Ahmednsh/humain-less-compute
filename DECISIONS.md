@@ -124,3 +124,13 @@ Format per entry: **Decision** — what was chosen. **Why** — the reasons. **R
 **Why.** Criterion 2 (robustness to changed inputs) and criterion 3 (component validation). The fix was motivated by measurement, not by the paid runs, and was made before thresholds were frozen; the held-out set was not involved.
 
 **Rejected.** Re-generating R1 with a "friendlier" rename map — would have hidden a real weakness.
+
+## D-016 · 2026-10-31 · Baseline measured: both Claude tiers saturate the dev set; the small tier will be chosen by a bake-off
+
+**Measured (dev, 150 tasks, after disambiguating two phrasings).** P0 `claude-sonnet-5.5` always: accuracy 100 %, p95 3 370 ms, $0.0086 per successful task. S `claude-haiku-5.5` only: accuracy 100 %, p95 5 213 ms, $0.0005 per successful task (−94 %), but it **fails the p95 latency floor** (1.25 × 3 370 = 4 213 ms). Before the rewording both scored 95.3 % with the identical seven failures; all seven were question ambiguities (a region named like a city; "smallest percentage change" read as absolute change), not model errors — fixed in the templates, logged here.
+
+**Finding.** On this domain the "small" Claude model is as accurate as the flagship. That is itself a result for "model choice per task" (most analytics questions do not need the flagship), but a two-tier controller is only meaningful when the tiers differ in capability, and the challenge's framing is "route easy work to small models" — small as in cheap, self-hostable open-weight class, not a second frontier model.
+
+**Decision.** Select the small tier by measurement: run policy S with six cheap candidates (`meta-llama/llama-3.3-70b-instruct`, `mistralai/mistral-small-3.2-24b-instruct`, `openai/gpt-5.4-nano`, `google/gemini-2.5-flash-lite`, `qwen/qwen3-32b`, `openai/gpt-oss-120b`) on the first 45 dev tasks, and pick the cheapest one that is fast (p95 within the floor) and shows a real tier-3 accuracy gap, so routing and verification have something to do. `claude-haiku-5.5` stays in the report as the "small only" sanity row and as an alternative small tier. The large tier and the baseline do not change, so the comparison "controller vs large-always" is unaffected by this choice.
+
+**Rejected.** Making the tasks harder instead — more templates would cost hours and the held-out set would have to change again. Keeping haiku as the small tier — every ablation row would read 100 %, teaching nothing about where verification pays.
