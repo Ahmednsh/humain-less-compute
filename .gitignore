@@ -1,0 +1,25 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# node
+node_modules/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# os / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# local scratch (the experiment log itself is tracked on purpose)
+tmp/
