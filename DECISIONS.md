@@ -171,3 +171,20 @@ Format per entry: **Decision** — what was chosen. **Why** — the reasons. **R
 **Decision.** θ = 4, the only setting that meets both floors; it is also the value that had been set a priori in `src/config.ts`, so it is confirmed rather than tuned. Higher θ saves more but lets tier-2 money questions reach the small model, where the misses are; the selective verifier (P3) targets exactly those, which is the next rung of the ladder.
 
 **Note on budget.** The OpenRouter balance ran out mid-sweep (HTTP 402). Affected rows were removed and re-run; the client now aborts a run on 401/402/403 instead of logging task failures. Remaining experiments wait for a top-up.
+
+## D-019 · 2026-10-31 · Iteration 2 after the first full-ladder run: period filters in the pruned context; verify only the small tier
+
+**Measured (dev, iteration 1; logs `dev-P2-iter1.jsonl`, `dev-P3-iter1.jsonl`).** P2 (+pruning): 96.7 %, 876 prompt tokens per task (−75 % vs 3 461), $0.0026 per success (−70 %), but below the accuracy floor. P3 (+selective verification): 96.7 %, $0.0052 — verification cost half of the run ($0.375 of $0.749) and fixed 3 answers.
+
+**Diagnosis from the logs (no extra spend).**
+- 4 of the 5 P2 misses are one failure mode of the small model under pruned context: quarter periods written as `substr(col,1,7) = '2024-01'` (first month only) or as `priority = 'x' AND m = '..-07' OR m = '..-08' OR …` (missing parentheses). The full context had eight examples and a longer glossary that happened to prevent this; the pruned context did not. The fifth miss dropped a carrier filter.
+- 52 of the 63 verification calls in P3 were on tasks the **large** model had answered, i.e. the verifier (the same large model) checking itself: 85 % of verification spend, one correction. The small-tier verifications (11 calls, $0.056) produced two corrections.
+- Small-route p95 was 4.8 s in P1 but 8.7 s in P2 with a shorter prompt: provider variance on a multi-provider open model, not pruning.
+
+**Decision.**
+1. The pruned glossary's date line now states half-open period ranges explicitly (`Q3 2025 = col >= '2025-07-01' AND col < '2025-10-01'`, "never chain months with OR") and a quarter-range few-shot was added; both are selected by the same keyword/overlap rules as before.
+2. Selective verification applies only to small-tier attempts. Large-tier answers are never self-verified in P3 (V, verify-always, keeps verifying everything, as the contrast row).
+3. OpenRouter requests ask for provider routing by latency (`provider.sort = latency`), which also makes the provider choice reproducible.
+Thresholds (θ = 4, confidence 0.75, complexity 3, money) are unchanged. P2 and P3 will be re-run as iteration 2; iteration-1 logs stay in `results/runs/` and in the experiment log.
+
+**Why this is legitimate.** All changes were derived from the dev set only; the held-out set has not been touched. This is the regression-check-and-iterate loop criterion 3 asks for, and the iteration-1 rows remain in the report.
