@@ -46,7 +46,8 @@ function genTasks(flags: Flags): void {
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, tasks.map(t => JSON.stringify(t)).join('\n') + '\n');
   const byTier = [1, 2, 3].map(t => tasks.filter(x => x.tier === t).length).join('/');
-  console.log(`wrote ${tasks.length} tasks (tiers ${byTier}, lang ${lang}${holdout ? ', HOLDOUT — do not open' : ''}) to ${out}`);
+  const distinctGold = new Set(tasks.map(t => t.goldSql)).size, distinctQ = new Set(tasks.map(t => t.question)).size;
+  console.log(`wrote ${tasks.length} tasks (tiers ${byTier}, lang ${lang}, ${distinctGold} distinct gold queries, ${distinctQ} distinct questions${holdout ? ', HOLDOUT — do not open' : ''}) to ${out}`);
 }
 
 /** Zero-cost client for CI: gold SQL for even-indexed tasks, a wrong-but-valid query for odd ones. Built outside the controller. */

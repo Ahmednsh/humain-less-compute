@@ -1,38 +1,38 @@
-import { def, esc, pickRow, scalar, topIsUnique, topLabel, year, REVENUE, QUARTERS, YEARS, SEGMENTS, METHODS, SEGMENT_AR, type Template } from './shared.js';
+import { def, esc, pickRow, scalar, topIsUnique, topLabel, inPeriod, pickPeriod, REVENUE, SEGMENTS, METHODS, SEGMENT_AR, type Template } from './shared.js';
 
 export const TIER2: Template[] = [
   def({
     id: 't2_region_revenue_period', tier: 2, answerType: 'number', moneyAggregate: true, tables: ['orders', 'order_items', 'customers', 'cities', 'regions'],
     sample(rng, db) {
       const r = pickRow<{ name: string }>(db, rng, 'SELECT name FROM regions'); if (!r) return null;
-      const q = rng.pick(Object.keys(QUARTERS)); const y = rng.pick(YEARS); const [from, to] = QUARTERS[q]!;
-      const sql = `SELECT ROUND(SUM(${REVENUE}), 2) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.id JOIN customers c ON c.id = o.customer_id JOIN cities ci ON ci.id = c.city_id JOIN regions r ON r.id = ci.region_id WHERE o.status = 'delivered' AND r.name = '${esc(r.name)}' AND o.order_date BETWEEN '${y}-${from}' AND '${y}-${to}'`;
+      const p = pickPeriod(rng);
+      const sql = `SELECT ROUND(SUM(${REVENUE}), 2) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.id JOIN customers c ON c.id = o.customer_id JOIN cities ci ON ci.id = c.city_id JOIN regions r ON r.id = ci.region_id WHERE o.status = 'delivered' AND r.name = '${esc(r.name)}' AND ${inPeriod('o.order_date', p)}`;
       if (scalar(db, sql) == null) return null;
-      return { params: { region: r.name, quarter: q, year: y },
-        en: [`What was the total delivered revenue for the ${r.name} region in ${q} ${y}?`, `How much revenue did delivered orders from customers in ${r.name} generate during ${q} ${y}?`],
-        ar: [`كم إجمالي إيرادات الطلبات المسلّمة لعملاء منطقة ${r.name} خلال الربع ${q} من عام ${y}؟`], sql };
+      return { params: { region: r.name, period: p.label },
+        en: [`What was the total delivered revenue for the ${r.name} region in ${p.label}?`, `How much revenue did delivered orders from customers in ${r.name} generate during ${p.label}?`],
+        ar: [`كم إجمالي إيرادات الطلبات المسلّمة لعملاء منطقة ${r.name} خلال ${p.ar}؟`], sql };
     },
   }),
   def({
     id: 't2_top_category_units_year', tier: 2, answerType: 'string', tables: ['orders', 'order_items', 'products', 'categories'],
     sample(rng, db) {
-      const y = rng.pick(YEARS);
-      const ranked = `SELECT c.name AS label, SUM(oi.quantity) AS metric FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN products p ON p.id = oi.product_id JOIN categories c ON c.id = p.category_id WHERE o.status = 'delivered' AND ${year('o.order_date', y)} GROUP BY c.id ORDER BY metric DESC, label`;
+      const p = pickPeriod(rng);
+      const ranked = `SELECT c.name AS label, SUM(oi.quantity) AS metric FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN products p ON p.id = oi.product_id JOIN categories c ON c.id = p.category_id WHERE o.status = 'delivered' AND ${inPeriod('o.order_date', p)} GROUP BY c.id ORDER BY metric DESC, label`;
       if (!topIsUnique(db, ranked)) return null;
-      return { params: { year: y },
-        en: [`Which product category sold the most units in delivered orders during ${y}?`, `In ${y}, which category had the highest total quantity sold (delivered orders only)?`],
-        ar: [`ما فئة المنتجات التي بيع منها أكبر عدد من الوحدات في الطلبات المسلّمة خلال عام ${y}؟`], sql: topLabel(ranked) };
+      return { params: { period: p.label },
+        en: [`Which product category sold the most units in delivered orders during ${p.label}?`, `In ${p.label}, which category had the highest total quantity sold (delivered orders only)?`],
+        ar: [`ما فئة المنتجات التي بيع منها أكبر عدد من الوحدات في الطلبات المسلّمة خلال ${p.ar}؟`], sql: topLabel(ranked) };
     },
   }),
   def({
     id: 't2_channel_highest_aov', tier: 2, answerType: 'string', moneyAggregate: true, tables: ['orders', 'order_items'],
     sample(rng, db) {
-      const y = rng.pick(YEARS);
-      const ranked = `SELECT o.channel AS label, SUM(${REVENUE}) / COUNT(DISTINCT o.id) AS metric FROM orders o JOIN order_items oi ON oi.order_id = o.id WHERE o.status = 'delivered' AND ${year('o.order_date', y)} GROUP BY o.channel ORDER BY metric DESC, label`;
+      const p = pickPeriod(rng);
+      const ranked = `SELECT o.channel AS label, SUM(${REVENUE}) / COUNT(DISTINCT o.id) AS metric FROM orders o JOIN order_items oi ON oi.order_id = o.id WHERE o.status = 'delivered' AND ${inPeriod('o.order_date', p)} GROUP BY o.channel ORDER BY metric DESC, label`;
       if (!topIsUnique(db, ranked)) return null;
-      return { params: { year: y },
-        en: [`Which sales channel had the highest average order value for delivered orders in ${y}?`, `For delivered orders in ${y}, which channel's average order value (revenue per order) was the highest?`],
-        ar: [`ما قناة البيع التي حققت أعلى متوسط قيمة طلب للطلبات المسلّمة في عام ${y}؟`], sql: topLabel(ranked) };
+      return { params: { period: p.label },
+        en: [`Which sales channel had the highest average order value for delivered orders in ${p.label}?`, `For delivered orders in ${p.label}, which channel's average order value (revenue per order) was the highest?`],
+        ar: [`ما قناة البيع التي حققت أعلى متوسط قيمة طلب للطلبات المسلّمة في ${p.ar}؟`], sql: topLabel(ranked) };
     },
   }),
   def({
@@ -58,33 +58,33 @@ export const TIER2: Template[] = [
   def({
     id: 't2_payment_method_count', tier: 2, answerType: 'number', tables: ['payments'],
     sample(rng) {
-      const m = rng.pick(METHODS); const y = rng.pick(YEARS);
-      return { params: { method: m, year: y },
-        en: [`How many payments were made by ${m.replace('_', ' ')} in ${y}?`, `In ${y}, what was the number of payments whose method is ${m}?`],
-        ar: [`كم عدد الدفعات التي تمت بطريقة ${m} في عام ${y}؟`],
-        sql: `SELECT COUNT(*) AS n FROM payments WHERE method = '${m}' AND ${year('paid_at', y)}` };
+      const m = rng.pick(METHODS); const p = pickPeriod(rng);
+      return { params: { method: m, period: p.label },
+        en: [`How many payments were made with the method ${m} in ${p.label}?`, `In ${p.label}, what was the number of payments whose method is ${m}?`],
+        ar: [`كم عدد الدفعات التي تمت بطريقة ${m} في ${p.ar}؟`],
+        sql: `SELECT COUNT(*) AS n FROM payments WHERE method = '${m}' AND ${inPeriod('paid_at', p)}` };
     },
   }),
   def({
     id: 't2_top_city_orders', tier: 2, answerType: 'string', tables: ['orders', 'customers', 'cities'],
     sample(rng, db) {
-      const y = rng.pick(YEARS);
-      const ranked = `SELECT ci.name AS label, COUNT(o.id) AS metric FROM orders o JOIN customers c ON c.id = o.customer_id JOIN cities ci ON ci.id = c.city_id WHERE ${year('o.order_date', y)} GROUP BY ci.id ORDER BY metric DESC, label`;
+      const p = pickPeriod(rng);
+      const ranked = `SELECT ci.name AS label, COUNT(o.id) AS metric FROM orders o JOIN customers c ON c.id = o.customer_id JOIN cities ci ON ci.id = c.city_id WHERE ${inPeriod('o.order_date', p)} GROUP BY ci.id ORDER BY metric DESC, label`;
       if (!topIsUnique(db, ranked)) return null;
-      return { params: { year: y },
-        en: [`Which city's customers placed the most orders in ${y}?`, `In ${y}, which customer city had the highest number of orders (any status)?`],
-        ar: [`ما المدينة التي قدّم عملاؤها أكبر عدد من الطلبات في عام ${y}؟`], sql: topLabel(ranked) };
+      return { params: { period: p.label },
+        en: [`Which city's customers placed the most orders in ${p.label}?`, `In ${p.label}, which customer city had the highest number of orders (any status)?`],
+        ar: [`ما المدينة التي قدّم عملاؤها أكبر عدد من الطلبات في ${p.ar}؟`], sql: topLabel(ranked) };
     },
   }),
   def({
     id: 't2_segment_revenue_year', tier: 2, answerType: 'number', moneyAggregate: true, tables: ['orders', 'order_items', 'customers'],
     sample(rng, db) {
-      const s = rng.pick(SEGMENTS); const y = rng.pick(YEARS);
-      const sql = `SELECT ROUND(SUM(${REVENUE}), 2) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.id JOIN customers c ON c.id = o.customer_id WHERE o.status = 'delivered' AND c.segment = '${s}' AND ${year('o.order_date', y)}`;
+      const s = rng.pick(SEGMENTS); const p = pickPeriod(rng);
+      const sql = `SELECT ROUND(SUM(${REVENUE}), 2) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.id JOIN customers c ON c.id = o.customer_id WHERE o.status = 'delivered' AND c.segment = '${s}' AND ${inPeriod('o.order_date', p)}`;
       if (scalar(db, sql) == null) return null;
-      return { params: { segment: s, year: y },
-        en: [`What was the total delivered revenue from ${s} customers in ${y}?`, `How much revenue came from delivered orders of the ${s} segment during ${y}?`],
-        ar: [`كم إجمالي إيرادات الطلبات المسلّمة من عملاء شريحة ${SEGMENT_AR[s]} في عام ${y}؟`], sql };
+      return { params: { segment: s, period: p.label },
+        en: [`What was the total delivered revenue from ${s} customers in ${p.label}?`, `How much revenue came from delivered orders of the ${s} segment during ${p.label}?`],
+        ar: [`كم إجمالي إيرادات الطلبات المسلّمة من عملاء شريحة ${SEGMENT_AR[s]} في ${p.ar}؟`], sql };
     },
   }),
   def({
@@ -92,7 +92,7 @@ export const TIER2: Template[] = [
     sample(rng, db) {
       const t = pickRow<{ topic: string }>(db, rng, 'SELECT DISTINCT topic FROM support_tickets'); if (!t) return null;
       return { params: { topic: t.topic },
-        en: [`How many support tickets about ${t.topic.replace('_', ' ')} are still open (not closed)?`, `Count the unresolved tickets whose topic is ${t.topic}.`],
+        en: [`How many support tickets with the topic ${t.topic} are still open (not closed)?`, `Count the unresolved tickets whose topic is ${t.topic}.`],
         ar: [`كم عدد تذاكر الدعم المفتوحة (غير المغلقة) التي موضوعها ${t.topic}؟`],
         sql: `SELECT COUNT(*) AS n FROM support_tickets WHERE topic = '${esc(t.topic)}' AND closed_at IS NULL` };
     },

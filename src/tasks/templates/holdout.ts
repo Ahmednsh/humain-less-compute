@@ -1,15 +1,15 @@
-import { def, esc, pickRow, scalar, topIsUnique, topLabel, year, REVENUE, YEARS, SEGMENTS, SEGMENT_AR, type Template } from './shared.js';
+import { def, esc, pickRow, scalar, topIsUnique, topLabel, year, inPeriod, pickPeriod, REVENUE, YEARS, SEGMENTS, SEGMENT_AR, type Template } from './shared.js';
 
 /** Never used for dev-set generation; see the held-out protocol in the spec. */
 export const HOLDOUT: Template[] = [
   def({
     id: 'h1_count_shipments_carrier_year', tier: 1, holdoutOnly: true, answerType: 'number', tables: ['shipments'],
     sample(rng, db) {
-      const c = pickRow<{ carrier: string }>(db, rng, 'SELECT DISTINCT carrier FROM shipments'); if (!c) return null; const y = rng.pick(YEARS);
-      const sql = `SELECT COUNT(*) AS n FROM shipments WHERE carrier = '${esc(c.carrier)}' AND ${year('shipped_at', y)}`;
-      return { params: { carrier: c.carrier, year: y },
-        en: [`How many shipments did ${c.carrier} ship in ${y}?`, `What is the number of shipments with carrier ${c.carrier} that were shipped during ${y}?`],
-        ar: [`كم عدد الشحنات التي شحنتها ${c.carrier} في عام ${y}؟`], sql };
+      const c = pickRow<{ carrier: string }>(db, rng, 'SELECT DISTINCT carrier FROM shipments'); if (!c) return null; const p = pickPeriod(rng);
+      const sql = `SELECT COUNT(*) AS n FROM shipments WHERE carrier = '${esc(c.carrier)}' AND ${inPeriod('shipped_at', p)}`;
+      return { params: { carrier: c.carrier, period: p.label },
+        en: [`How many shipments did ${c.carrier} ship in ${p.label}?`, `What is the number of shipments with carrier ${c.carrier} that were shipped during ${p.label}?`],
+        ar: [`كم عدد الشحنات التي شحنتها ${c.carrier} في ${p.ar}؟`], sql };
     },
   }),
   def({
@@ -26,12 +26,12 @@ export const HOLDOUT: Template[] = [
   def({
     id: 'h2_city_most_urgent_tickets_year', tier: 2, holdoutOnly: true, answerType: 'string', tables: ['support_tickets', 'customers', 'cities'],
     sample(rng, db) {
-      const y = rng.pick(YEARS);
-      const ranked = `SELECT ci.name AS label, COUNT(t.id) AS metric FROM support_tickets t JOIN customers c ON c.id = t.customer_id JOIN cities ci ON ci.id = c.city_id WHERE t.priority = 'urgent' AND ${year('t.opened_at', y)} GROUP BY ci.id ORDER BY metric DESC, label`;
+      const p = pickPeriod(rng);
+      const ranked = `SELECT ci.name AS label, COUNT(t.id) AS metric FROM support_tickets t JOIN customers c ON c.id = t.customer_id JOIN cities ci ON ci.id = c.city_id WHERE t.priority = 'urgent' AND ${inPeriod('t.opened_at', p)} GROUP BY ci.id ORDER BY metric DESC, label`;
       if (!topIsUnique(db, ranked)) return null;
-      return { params: { year: y },
-        en: [`Which city's customers opened the most urgent-priority support tickets in ${y}?`, `In ${y}, customers from which city raised the largest number of urgent tickets?`],
-        ar: [`ما المدينة التي فتح عملاؤها أكبر عدد من تذاكر الدعم ذات الأولوية العاجلة (urgent) في عام ${y}؟`], sql: topLabel(ranked) };
+      return { params: { period: p.label },
+        en: [`Which city's customers opened the most urgent-priority support tickets in ${p.label}?`, `In ${p.label}, customers from which city raised the largest number of urgent tickets?`],
+        ar: [`ما المدينة التي فتح عملاؤها أكبر عدد من تذاكر الدعم ذات الأولوية العاجلة (urgent) في ${p.ar}؟`], sql: topLabel(ranked) };
     },
   }),
   def({
@@ -60,12 +60,12 @@ export const HOLDOUT: Template[] = [
   def({
     id: 'h3_managers_team_revenue_rank', tier: 3, holdoutOnly: true, answerType: 'ordered_list', moneyAggregate: true, tables: ['orders', 'order_items', 'employees'],
     sample(rng, db) {
-      const y = rng.pick(YEARS);
-      const ranked = `SELECT m.name AS label, ROUND(SUM(${REVENUE}), 2) AS metric FROM orders o JOIN order_items oi ON oi.order_id = o.id JOIN employees e ON e.id = o.employee_id JOIN employees m ON m.id = e.manager_id WHERE o.status = 'delivered' AND ${year('o.order_date', y)} GROUP BY m.id ORDER BY metric DESC, label`;
+      const p = pickPeriod(rng);
+      const ranked = `SELECT m.name AS label, ROUND(SUM(${REVENUE}), 2) AS metric FROM orders o JOIN order_items oi ON oi.order_id = o.id JOIN employees e ON e.id = o.employee_id JOIN employees m ON m.id = e.manager_id WHERE o.status = 'delivered' AND ${inPeriod('o.order_date', p)} GROUP BY m.id ORDER BY metric DESC, label`;
       if (!topIsUnique(db, ranked, 3)) return null;
-      return { params: { year: y },
-        en: [`Rank the top 3 managers by the total delivered revenue of the employees who report to them in ${y}, highest first.`, `Which three managers' direct reports generated the most delivered revenue in ${y}? List the managers best first.`],
-        ar: [`رتّب أفضل 3 مديرين حسب إجمالي إيرادات الطلبات المسلّمة للموظفين التابعين لهم مباشرة في عام ${y}، من الأعلى.`], sql: topLabel(ranked, 3) };
+      return { params: { period: p.label },
+        en: [`Rank the top 3 managers by the total delivered revenue of the employees who report to them in ${p.label}, highest first.`, `Which three managers' direct reports generated the most delivered revenue in ${p.label}? List the managers best first.`],
+        ar: [`رتّب أفضل 3 مديرين حسب إجمالي إيرادات الطلبات المسلّمة للموظفين التابعين لهم مباشرة في ${p.ar}، من الأعلى.`], sql: topLabel(ranked, 3) };
     },
   }),
 ];

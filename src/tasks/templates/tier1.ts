@@ -1,4 +1,4 @@
-import { def, esc, pickRow, year, SEGMENTS, STATUSES, PRIORITIES, ROLE_LABEL, ROLE_LABEL_AR, SEGMENT_AR, STATUS_AR, YEARS, type Template } from './shared.js';
+import { def, esc, pickRow, inPeriod, pickPeriod, SEGMENTS, STATUSES, PRIORITIES, ROLE_LABEL, ROLE_LABEL_AR, SEGMENT_AR, STATUS_AR, type Template } from './shared.js';
 
 export const TIER1: Template[] = [
   def({
@@ -16,7 +16,7 @@ export const TIER1: Template[] = [
     sample(rng, db) {
       const p = pickRow<{ sku: string }>(db, rng, 'SELECT sku FROM products'); if (!p) return null;
       return { params: { sku: p.sku },
-        en: [`What is the unit price of the product with SKU ${p.sku}?`, `How much does product ${p.sku} cost per unit (unit price)?`],
+        en: [`What is the unit price of the product with SKU ${p.sku}?`, `What is the selling price per unit (unit_price) of the product whose SKU is ${p.sku}?`],
         ar: [`ما سعر الوحدة للمنتج الذي رمزه ${p.sku}؟`],
         sql: `SELECT unit_price FROM products WHERE sku = '${esc(p.sku)}'` };
     },
@@ -54,11 +54,11 @@ export const TIER1: Template[] = [
   def({
     id: 't1_count_tickets_priority', tier: 1, answerType: 'number', tables: ['support_tickets'],
     sample(rng) {
-      const priority = rng.pick(PRIORITIES); const y = rng.pick(YEARS);
-      return { params: { priority, year: y },
-        en: [`How many support tickets with ${priority} priority were opened in ${y}?`, `In ${y}, how many ${priority}-priority tickets were opened?`],
-        ar: [`كم عدد تذاكر الدعم ذات الأولوية ${priority} التي فُتحت في عام ${y}؟`],
-        sql: `SELECT COUNT(*) AS n FROM support_tickets WHERE priority = '${priority}' AND ${year('opened_at', y)}` };
+      const priority = rng.pick(PRIORITIES); const p = pickPeriod(rng);
+      return { params: { priority, period: p.label },
+        en: [`How many support tickets with ${priority} priority were opened in ${p.label}?`, `In ${p.label}, how many ${priority}-priority tickets were opened?`],
+        ar: [`كم عدد تذاكر الدعم ذات الأولوية ${priority} التي فُتحت في ${p.ar}؟`],
+        sql: `SELECT COUNT(*) AS n FROM support_tickets WHERE priority = '${priority}' AND ${inPeriod('opened_at', p)}` };
     },
   }),
   def({

@@ -35,6 +35,18 @@ export const STATUS_AR: Record<string, string> = { pending: 'قيد الانتظ
 export const esc = (s: string | number): string => String(s).replace(/'/g, "''");
 export const year = (col: string, y: number | string) => `substr(${col}, 1, 4) = '${y}'`;
 
+/** A calendar period: full year, half or quarter. `to` is exclusive so the filter works for dates and timestamps alike. */
+export interface Period { label: string; ar: string; from: string; to: string }
+const AR_Q = ['الربع الأول', 'الربع الثاني', 'الربع الثالث', 'الربع الرابع'];
+export const PERIODS: Period[] = YEARS.flatMap(y => [
+  { label: `${y}`, ar: `عام ${y}`, from: `${y}-01-01`, to: `${y + 1}-01-01` },
+  { label: `H1 ${y}`, ar: `النصف الأول من ${y}`, from: `${y}-01-01`, to: `${y}-07-01` },
+  { label: `H2 ${y}`, ar: `النصف الثاني من ${y}`, from: `${y}-07-01`, to: `${y + 1}-01-01` },
+  ...[1, 2, 3, 4].map(q => ({ label: `Q${q} ${y}`, ar: `${AR_Q[q - 1]} من ${y}`, from: `${y}-${String(3 * q - 2).padStart(2, '0')}-01`, to: q === 4 ? `${y + 1}-01-01` : `${y}-${String(3 * q + 1).padStart(2, '0')}-01` })),
+]);
+export const inPeriod = (col: string, p: Period) => `${col} >= '${p.from}' AND ${col} < '${p.to}'`;
+export const pickPeriod = (rng: Rng): Period => rng.pick(PERIODS);
+
 export function pickRow<T extends Record<string, unknown>>(db: DatabaseSync, rng: Rng, sql: string): T | null {
   const rows = db.prepare(sql).all() as T[];
   return rows.length ? rng.pick(rows) : null;
