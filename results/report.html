@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Less-compute controller — results</title>
+<style>body{font-family:system-ui,Segoe UI,sans-serif;margin:32px;color:#1b1b1b;background:#fafafa}table{border-collapse:collapse;width:100%;background:#fff}th,td{border:1px solid #ddd;padding:8px 10px;text-align:right;white-space:nowrap}th{background:#f0f0f0}td:first-child,th:first-child{text-align:left}caption{text-align:left;font-weight:600;padding:8px 0}small{color:#666}p{max-width:900px}</style></head><body>
+<h1>Less-compute controller — results</h1>
+<table><caption>Ablation ladder · baseline = P0</caption>
+<tr><th>policy</th><th>n</th><th>accuracy</th><th>T1 / T2 / T3</th><th>p50</th><th>p95</th><th>tokens in/out per task</th><th>cost / task</th><th>cost / success</th><th>Δ cost / success</th><th>small %</th><th>escalated %</th><th>verified %</th><th>floors</th></tr>
+<tr><td><b>P0</b><br><small>baseline: large always · dev-P0</small></td><td>150</td><td>100.0%</td><td>100% / 100% / 100%</td><td>1545 ms</td><td>3370 ms</td><td>3461 / 168</td><td>$0.0086</td><td><b>$0.0086</b></td><td>0%</td><td>0%</td><td>0%</td><td>0%</td><td>reference</td></tr>
+<tr><td><b>S</b><br><small>small only · dev-S</small></td><td>150</td><td>84.7%</td><td>98% / 90% / 66%</td><td>1919 ms</td><td>7006 ms</td><td>2042 / 114</td><td>$0.0003</td><td><b>$0.0003</b></td><td>-96%</td><td>100%</td><td>0%</td><td>0%</td><td>❌ acc · ❌ p95</td></tr>
+<tr><td><b>P1</b><br><small>+ router · dev-P1-theta4</small></td><td>150</td><td>98.0%</td><td>100% / 94% / 100%</td><td>1723 ms</td><td>3524 ms</td><td>2644 / 144</td><td>$0.0046</td><td><b>$0.0047</b></td><td>-46%</td><td>52%</td><td>0%</td><td>0%</td><td>✅ acc · ✅ p95</td></tr>
+<tr><td><b>P2</b><br><small>+ context pruning · dev-P2-iter1</small></td><td>150</td><td>96.7%</td><td>94% / 96% / 100%</td><td>1917 ms</td><td>6576 ms</td><td>876 / 151</td><td>$0.0025</td><td><b>$0.0026</b></td><td>-70%</td><td>52%</td><td>0%</td><td>0%</td><td>❌ acc · ❌ p95</td></tr>
+<tr><td><b>P3</b><br><small>+ selective verification (full) · dev-P3-iter1</small></td><td>150</td><td>96.7%</td><td>92% / 98% / 100%</td><td>3621 ms</td><td>8288 ms</td><td>1390 / 298</td><td>$0.0050</td><td><b>$0.0052</b></td><td>-40%</td><td>52%</td><td>0%</td><td>42%</td><td>❌ acc · ❌ p95</td></tr>
+</table>
+<p>Floors (relative to P0): accuracy ≥ baseline − 2 pp; p95 latency ≤ 1.25× baseline. Cost per success = total spend ÷ correct answers; failed and escalated attempts are included in the spend.</p>
+</body></html>
