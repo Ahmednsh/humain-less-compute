@@ -42,21 +42,24 @@ export function shouldVerify(a: { confidence: number; sql: string; money: boolea
 
 const VerdictJson = z.object({ verdict: z.enum(['correct', 'incorrect']), corrected_sql: z.string().nullable().optional(), reason: z.string().optional() });
 
-export interface VerifyOutcome { verdict: 'correct' | 'incorrect'; correctedSql: string | null; reason: string; call: CallRecord }
+export type Verdict = 'correct' | 'incorrect' | 'unparseable';
+export interface VerifyOutcome { verdict: Verdict; correctedSql: string | null; reason: string; call: CallRecord }
 
-export async function llmVerify(a: { client: LlmClient; model: string; question: string; ctx: AgentContext; sql: string; rows: Row[] }): Promise<VerifyOutcome> {
+export async function llmVerify(a: { client: LlmClient; model: string; question: string; ctx: AgentContext; sql: string; rows: Row[]; onCall?: (c: CallRecord) => void }): Promise<VerifyOutcome> {
   const res = await a.client.chat(a.model, [{ role: 'user', content: verifyPrompt(a.ctx, a.question, a.sql, rowsPreview(a.rows)) }]);
   const call = toCall('verify', res);
+  a.onCall?.(call);
   const text = res.text.replace(/```(?:json)?/gi, '');
   const start = text.indexOf('{'), end = text.lastIndexOf('}');
-  if (start < 0 || end <= start) return { verdict: 'correct', correctedSql: null, reason: 'verifier output unparseable; kept original', call };
+  const unparseable: VerifyOutcome = { verdict: 'unparseable', correctedSql: null, reason: 'verifier output unparseable; original kept', call };
+  if (start < 0 || end <= start) return unparseable;
   try {
     const parsed = VerdictJson.safeParse(JSON.parse(text.slice(start, end + 1)));
-    if (!parsed.success) return { verdict: 'correct', correctedSql: null, reason: 'verifier output invalid; kept original', call };
+    if (!parsed.success) return unparseable;
     const d = parsed.data;
     return { verdict: d.verdict, correctedSql: d.verdict === 'incorrect' ? d.corrected_sql ?? null : null, reason: d.reason ?? '', call };
   } catch {
-    return { verdict: 'correct', correctedSql: null, reason: 'verifier output unparseable; kept original', call };
+    return unparseable;
   }
 }
 

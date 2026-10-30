@@ -31,6 +31,19 @@ export function num(flags: Flags, key: string, fallback?: number): number {
 }
 export const bool = (flags: Flags, key: string): boolean => flags[key] === true || flags[key] === 'true';
 
+/**
+ * Deterministic run-log path: the same command always maps to the same file, so a re-run resumes
+ * (skips logged task ids) instead of paying again. Variants (--theta, --small, --large) get a suffix.
+ */
+export function defaultRunPath(policy: string, tasksPath: string, flags: Flags): string {
+  const taskset = tasksPath.replace(/\\/g, '/').split('/').pop()!.replace(/\.jsonl$/, '');
+  const variant = ['theta', 'small', 'large']
+    .filter(k => typeof flags[k] === 'string')
+    .map(k => (k === 'theta' ? `theta${flags[k]}` : `${k}-${String(flags[k]).replace(/[^a-z0-9.]+/gi, '-')}`))
+    .join('-');
+  return `results/runs/${taskset}-${policy}${variant ? `-${variant}` : ''}.jsonl`;
+}
+
 export function isInsideRepo(path: string, repoRoot: string): boolean {
   const rel = relative(resolve(repoRoot), resolve(path));
   return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));

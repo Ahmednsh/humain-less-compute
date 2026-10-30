@@ -10,10 +10,19 @@ describe('db', () => {
     const orders = info.tables.find(t => t.name === 'orders')!;
     expect(orders.fks).toContainEqual({ from: 'customer_id', table: 'customers', to: 'id' });
   });
-  it('schemaToDdl can restrict to tables', () => {
+  it('schemaToDdl can restrict to tables and keeps CHECK/NOT NULL constraints', () => {
     const ddl = schemaToDdl(introspectSchema(mem()), ['regions']);
     expect(ddl).toContain('CREATE TABLE regions');
     expect(ddl).not.toContain('CREATE TABLE cities');
+    const orders = schemaToDdl(introspectSchema(mem()), ['orders']);
+    expect(orders).toMatch(/CHECK \(status IN \('pending','shipped','delivered','cancelled','returned'\)\)/);
+    expect(orders).toMatch(/customer_id INTEGER NOT NULL REFERENCES customers\(id\)/);
+  });
+  it('schemaToDdl reflects renamed tables and columns', () => {
+    const db = mem();
+    db.exec('ALTER TABLE orders RENAME COLUMN order_date TO placed_on'); db.exec('ALTER TABLE orders RENAME TO sales_orders');
+    const ddl = schemaToDdl(introspectSchema(db), ['sales_orders']);
+    expect(ddl).toContain('CREATE TABLE "sales_orders"'); expect(ddl).toContain('placed_on'); expect(ddl).not.toMatch(/\border_date\b/);
   });
   it('runs a select and caps rows', () => {
     const db = mem(); db.exec("INSERT INTO regions(name) VALUES ('a'),('b'),('c')");

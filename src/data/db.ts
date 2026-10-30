@@ -8,6 +8,8 @@ export interface TableInfo {
   name: string;
   columns: { name: string; type: string; pk: boolean }[];
   fks: { from: string; table: string; to: string }[];
+  /** Original CREATE TABLE text from sqlite_master (SQLite keeps it current across renames). */
+  sql: string;
 }
 export interface SchemaInfo { tables: TableInfo[] }
 export type QueryResult =
@@ -61,10 +63,11 @@ export function runReadOnly(db: DatabaseSync, sql: string, opts: { rowCap?: numb
 }
 
 export function introspectSchema(db: DatabaseSync): SchemaInfo {
-  const names = (db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all() as { name: string }[]).map(r => r.name);
+  const master = db.prepare("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all() as { name: string; sql: string }[];
   return {
-    tables: names.map(name => ({
+    tables: master.map(({ name, sql }) => ({
       name,
+      sql,
       columns: (db.prepare(`PRAGMA table_info("${name}")`).all() as { name: string; type: string; pk: number }[])
         .map(c => ({ name: c.name, type: c.type, pk: c.pk > 0 })),
       fks: (db.prepare(`PRAGMA foreign_key_list("${name}")`).all() as { from: string; table: string; to: string }[])
@@ -73,14 +76,11 @@ export function introspectSchema(db: DatabaseSync): SchemaInfo {
   };
 }
 
+/** DDL as the model sees it: the original CREATE TABLE text (CHECK lists, NOT NULL, REFERENCES), whitespace-normalised. */
 export function schemaToDdl(info: SchemaInfo, tables?: string[]): string {
   const keep = tables ? new Set(tables) : null;
   return info.tables
     .filter(t => !keep || keep.has(t.name))
-    .map(t => {
-      const cols = t.columns.map(c => `  ${c.name} ${c.type}${c.pk ? ' PRIMARY KEY' : ''}`);
-      const fks = t.fks.map(f => `  FOREIGN KEY (${f.from}) REFERENCES ${f.table}(${f.to})`);
-      return `CREATE TABLE ${t.name} (\n${[...cols, ...fks].join(',\n')}\n);`;
-    })
+    .map(t => t.sql.replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/ \)/g, ')').replace(/, /g, ',\n  ').replace(/^(CREATE TABLE [^(]+)\(/, '$1(\n  ').replace(/\)$/, '\n);'))
     .join('\n');
 }

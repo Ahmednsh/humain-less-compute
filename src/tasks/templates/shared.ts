@@ -50,9 +50,11 @@ export function scalar(db: DatabaseSync, sql: string): unknown {
 export function topIsUnique(db: DatabaseSync, rankedSql: string, k = 1): boolean {
   const rows = db.prepare(`SELECT * FROM (${rankedSql}) LIMIT ${k + 1}`).all() as { label: unknown; metric: unknown }[];
   if (rows.length < 1 || rows[0]!.label == null) return false;
+  // Float metrics summed in a different order can differ in the last bits: treat near-equal as a tie.
+  const same = (a: unknown, b: unknown) => (typeof a === 'number' && typeof b === 'number' ? Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a), Math.abs(b)) : a === b);
   const take = Math.min(k, rows.length);
-  for (let i = 1; i < take; i++) if (rows[i]!.metric === rows[i - 1]!.metric) return false;
-  if (rows.length > take && rows[take]!.metric === rows[take - 1]!.metric) return false;
+  for (let i = 1; i < take; i++) if (same(rows[i]!.metric, rows[i - 1]!.metric)) return false;
+  if (rows.length > take && same(rows[take]!.metric, rows[take - 1]!.metric)) return false;
   return true;
 }
 export const topLabel = (rankedSql: string, k = 1) => `SELECT label FROM (${rankedSql}) LIMIT ${k}`;

@@ -41,6 +41,8 @@ export interface AttemptArgs {
   question: string;
   ctx: AgentContext;
   maxRepairs: number;
+  /** Called as soon as each call completes, so cost survives a later exception. */
+  onCall?: (c: CallRecord) => void;
 }
 
 /** One model attempt: generate SQL as JSON, run it read-only, repair on error/empty up to maxRepairs. */
@@ -52,7 +54,9 @@ export async function runAttempt(a: AttemptArgs): Promise<AttemptResult> {
     const purpose: CallPurpose = turn === 0 ? 'generate' : 'repair';
     if (turn > 0) result.repairs++;
     const res = await a.client.chat(a.model, messages);
-    result.calls.push(toCall(purpose, res));
+    const call = toCall(purpose, res);
+    result.calls.push(call);
+    a.onCall?.(call);
     messages.push({ role: 'assistant', content: res.text });
 
     const parsed = parseModelJson(res.text);

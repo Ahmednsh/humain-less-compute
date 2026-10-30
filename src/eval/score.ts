@@ -22,8 +22,10 @@ export function rowsToAnswer(rows: Row[], shape: 'scalar' | 'list'): Answer | nu
   return vals.filter((v): v is string | number => v != null);
 }
 
-function numEq(a: number, b: number): boolean {
-  return Math.abs(a - b) <= Math.max(0.01, Math.abs(b) * 0.005);
+/** Integer golds (counts) must match exactly; rounded money/averages get 0.5 % relative or ±0.01. */
+function numEq(pred: number, gold: number): boolean {
+  if (Number.isInteger(gold)) return Math.abs(pred - gold) <= 0.01;
+  return Math.abs(pred - gold) <= Math.max(0.01, Math.abs(gold) * 0.005);
 }
 
 const unwrap = (v: Answer): string | number | (string | number)[] =>

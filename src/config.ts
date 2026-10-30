@@ -1,12 +1,10 @@
 import { existsSync } from 'node:fs';
 
 export interface Tiers { small: string; large: string }
-export const TIERS: Tiers = {
-  small: process.env.SMALL_MODEL ?? 'anthropic/claude-haiku-5.5',
-  large: process.env.LARGE_MODEL ?? 'anthropic/claude-sonnet-5.5',
-};
+export const TIERS: Tiers = { small: 'anthropic/claude-haiku-5.5', large: 'anthropic/claude-sonnet-5.5' };
+/** CLI flag > env (SMALL_MODEL / LARGE_MODEL, read at call time so .env is honoured) > default. */
 export function resolveTiers(override: Partial<Tiers> = {}): Tiers {
-  return { small: override.small ?? TIERS.small, large: override.large ?? TIERS.large };
+  return { small: override.small ?? process.env.SMALL_MODEL ?? TIERS.small, large: override.large ?? process.env.LARGE_MODEL ?? TIERS.large };
 }
 
 export interface Policy {

@@ -43,9 +43,9 @@ describe('verifier', () => {
     expect(fixed.ok && fixed.answer).toBe(20);
     expect(applyCorrection(db, 'DELETE FROM customers', 'scalar').ok).toBe(false);
   });
-  it('llmVerify treats unparseable output as correct (no change) and still records the call', async () => {
+  it('llmVerify reports unparseable output distinctly and still records the call', async () => {
     const { schema } = setup(); const client = createMockClient(() => 'hmm');
     const v = await llmVerify({ client, model: 'm', question: 'q', ctx: buildContext('q', schema, 'pruned'), sql: 'SELECT 1', rows: [] });
-    expect(v.verdict).toBe('correct'); expect(v.correctedSql).toBeNull(); expect(v.call.purpose).toBe('verify');
+    expect(v.verdict).toBe('unparseable'); expect(v.correctedSql).toBeNull(); expect(v.call.purpose).toBe('verify');
   });
 });

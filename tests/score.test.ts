@@ -10,9 +10,14 @@ describe('score', () => {
     expect(parseNumber(7)).toBe(7);
     expect(parseNumber(null)).toBeNull();
   });
-  it('numbers within tolerance', () => {
-    expect(scoreAnswer(1000, 1004, 'number')).toBe(true);
-    expect(scoreAnswer(1000, 1010, 'number')).toBe(false);
+  it('integer golds (counts) must match exactly; non-integers get the relative band', () => {
+    expect(scoreAnswer(1000, 1004, 'number')).toBe(false);
+    expect(scoreAnswer(3320, 3333, 'number')).toBe(false);
+    expect(scoreAnswer(398, 400, 'number')).toBe(false);
+    expect(scoreAnswer('400', 400, 'number')).toBe(true);
+    expect(scoreAnswer(400.004, 400, 'number')).toBe(true);
+    expect(scoreAnswer(1000.5, 1004.5, 'number')).toBe(true);
+    expect(scoreAnswer(1000.5, 1010.5, 'number')).toBe(false);
     expect(scoreAnswer(0, 0.005, 'number')).toBe(true);
     expect(scoreAnswer('42', 42, 'number')).toBe(true);
     expect(scoreAnswer([42], 42, 'number')).toBe(true);

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { DatabaseSync } from 'node:sqlite';
 import { ALL_TEMPLATES, type Template } from '../src/tasks/templates/index.js';
+import { topIsUnique } from '../src/tasks/templates/shared.js';
 import { fixtureDb } from './fixtures/fixture.js';
 import { runReadOnly } from '../src/data/db.js';
 import { createRng } from '../src/data/rng.js';
@@ -67,6 +68,11 @@ describe('templates', () => {
     expect(gold(db, t, sampleWith(db, t, p => p.year === 2025).sql)).toBe('Q2');
   });
 
+  it('topIsUnique treats float near-ties as ties', () => {
+    const db = fixtureDb();
+    expect(topIsUnique(db, 'SELECT * FROM (SELECT \'a\' AS label, 0.1 + 0.2 AS metric UNION ALL SELECT \'b\', 0.3) ORDER BY metric DESC')).toBe(false);
+    expect(topIsUnique(db, 'SELECT * FROM (SELECT \'a\' AS label, 0.31 AS metric UNION ALL SELECT \'b\', 0.3) ORDER BY metric DESC')).toBe(true);
+  });
   it('superlative templates refuse ties', () => {
     const db = fixtureDb();
     // make Dairy and Snacks tie in 2025 delivered revenue: add Snacks 20 to order 9 → Snacks 100 = Dairy 100

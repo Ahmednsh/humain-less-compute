@@ -12,7 +12,7 @@ import { percentile, summarize, checkFloors } from '../src/eval/metrics.js';
 import { renderMarkdown, renderHtml, appendExperimentLog } from '../src/eval/report.js';
 
 const tiers = { small: 'anthropic/claude-haiku-5.5', large: 'anthropic/claude-sonnet-5.5' };
-const row = (over: Partial<RunRow>): RunRow => ({ runId: 'r', policy: 'P0', taskId: 'a', templateId: 't', tier: 1, lang: 'en', correct: true, answer: 1, gold: 1, route: 'large', escalated: false, verified: false, verifyReasons: [], verdict: null, corrected: false, tablesSent: [], promptTokens: 100, completionTokens: 10, costUsd: 0.01, latencyMs: 1000, repairs: 0, routerScore: 0, error: null, ts: 'now', ...over });
+const row = (over: Partial<RunRow>): RunRow => ({ runId: 'r', policy: 'P0', policyFlags: POLICIES.P0, models: tiers, thresholds: { routerHi: 4, verifyConfidence: 0.75, verifyComplexity: 3, maxRepairs: { small: 1, large: 2 } }, taskId: 'a', templateId: 't', tier: 1, lang: 'en', correct: true, answer: 1, gold: 1, sql: 'SELECT 1', route: 'large', escalated: false, verified: false, verifyReasons: [], verdict: null, corrected: false, verifierRejected: false, tablesSent: [], calls: [], promptTokens: 100, completionTokens: 10, costUsd: 0.01, latencyMs: 1000, repairs: 0, routerScore: 0, error: null, ts: 'now', ...over });
 
 describe('metrics', () => {
   it('percentile is nearest-rank', () => {
@@ -48,6 +48,26 @@ describe('runEval', () => {
     const again = await runEval({ runId: 'r1', policyName: 'P0', policy: POLICIES.P0, tasks, client: strict, db, schema, tiers, outPath: out });
     expect(again.length).toBe(6); expect(strict.calls.length).toBe(0);
   });
+  it('rows carry audit fields: sql, per-call records, model ids', async () => {
+    const db = openDb(':memory:'); createSchema(db); generateCompany(db, 1, { customers: 20, products: 10, employees: 5, orders: 100, tickets: 10 });
+    const schema = introspectSchema(db); const tasks = generateTasks(db, { seed: 1, n: 3, holdout: false, lang: 'en' });
+    const client = createMockClient(() => JSON.stringify({ sql: 'SELECT COUNT(*) FROM customers', answer_shape: 'scalar', confidence: 0.9 }));
+    const out = join(mkdtempSync(join(tmpdir(), 'lc-')), 'run.jsonl');
+    const rows = await runEval({ runId: 'r3', policyName: 'P0', policy: POLICIES.P0, tasks, client, db, schema, tiers, outPath: out });
+    expect(rows[0]!.sql).toBe('SELECT COUNT(*) FROM customers'); expect(rows[0]!.calls.length).toBe(1); expect(rows[0]!.calls[0]!.model).toBe(tiers.large);
+    expect(rows[0]!.models).toEqual(tiers); expect(rows[0]!.policyFlags).toEqual(POLICIES.P0); expect(rows[0]!.thresholds.routerHi).toBeGreaterThan(0);
+  });
+  it('refuses to resume a log written by a different policy, and skips a partial last line', async () => {
+    const db = openDb(':memory:'); createSchema(db); generateCompany(db, 1, { customers: 20, products: 10, employees: 5, orders: 100, tickets: 10 });
+    const schema = introspectSchema(db); const tasks = generateTasks(db, { seed: 1, n: 2, holdout: false, lang: 'en' });
+    const client = createMockClient(() => JSON.stringify({ sql: 'SELECT 1' }));
+    const out = join(mkdtempSync(join(tmpdir(), 'lc-')), 'run.jsonl');
+    await runEval({ runId: 'r4', policyName: 'P0', policy: POLICIES.P0, tasks, client, db, schema, tiers, outPath: out });
+    await expect(runEval({ runId: 'r4', policyName: 'P3', policy: POLICIES.P3, tasks, client, db, schema, tiers, outPath: out })).rejects.toThrow(/policy/);
+    const { appendFileSync } = await import('node:fs'); appendFileSync(out, '{"runId":"r4","taskId":"br');
+    const rows = await runEval({ runId: 'r4', policyName: 'P0', policy: POLICIES.P0, tasks, client, db, schema, tiers, outPath: out });
+    expect(rows.length).toBe(2);
+  });
   it('records a client failure as an error row instead of aborting the run', async () => {
     const db = openDb(':memory:'); createSchema(db); generateCompany(db, 1, { customers: 20, products: 10, employees: 5, orders: 100, tickets: 10 });
     const schema = introspectSchema(db); const tasks = generateTasks(db, { seed: 1, n: 3, holdout: false, lang: 'en' });
@@ -69,7 +89,9 @@ describe('report', () => {
     const log = join(mkdtempSync(join(tmpdir(), 'lc-')), 'EXPERIMENTS.md');
     appendExperimentLog(log, { runId: 'a', policy: 'P0', taskset: 'dev', n: 3, summary: base, notes: 'first' });
     appendExperimentLog(log, { runId: 'b', policy: 'P3', taskset: 'dev', n: 3, summary: cand, notes: 'second' });
+    appendExperimentLog(log, { runId: 'b', policy: 'P3', taskset: 'dev', n: 3, summary: cand, notes: 'duplicate' });
     const text = readFileSync(log, 'utf8');
     expect(existsSync(log)).toBe(true); expect((text.match(/\| run id/gi) ?? []).length).toBe(1); expect(text).toContain('first'); expect(text).toContain('second');
+    expect(text).not.toContain('duplicate'); expect((text.match(/^\| b \|/gm) ?? []).length).toBe(1);
   });
 });

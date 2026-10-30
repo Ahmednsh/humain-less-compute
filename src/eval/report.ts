@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { FLOORS } from '../config.js';
 import { checkFloors, type Summary } from './metrics.js';
@@ -48,6 +48,7 @@ const HEADER = '| run id | policy | task set | n | accuracy | T1/T2/T3 | p95 | t
 export function appendExperimentLog(path: string, e: ExperimentEntry): void {
   mkdirSync(dirname(path), { recursive: true });
   if (!existsSync(path)) writeFileSync(path, `# Experiment log\n\nOne row per real run, appended automatically by \`eval\`. Logs live in \`results/runs/\`.\n\n${HEADER}`);
+  else if (readFileSync(path, 'utf8').split('\n').some(l => l.startsWith(`| ${e.runId} |`))) return; // re-running a finished run is not a new experiment
   const s = e.summary;
   appendFileSync(path, `| ${e.runId} | ${e.policy} | ${e.taskset} | ${e.n} | ${pct(s.accuracy)} | ${pct(s.accuracyByTier[1], 0)}/${pct(s.accuracyByTier[2], 0)}/${pct(s.accuracyByTier[3], 0)} | ${ms(s.p95LatencyMs)} | ${Math.round(s.promptTokensPerTask)}/${Math.round(s.completionTokensPerTask)} | ${usd(s.costPerTask)} | ${usd(s.costPerSuccess)} | ${pct(s.pctSmall, 0)} | ${pct(s.pctEscalated, 0)} | ${pct(s.pctVerified, 0)} | ${e.notes.replace(/\|/g, '/')} |\n`);
 }

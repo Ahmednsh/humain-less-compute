@@ -64,6 +64,25 @@ describe('controller', () => {
     const o = await runTask({ task: { id: 't', question: easy }, policy: POLICIES.S, client: s, db, schema, tiers });
     expect(o.escalated).toBe(false); expect(o.answer).toBeNull(); expect(o.error).toMatch(/no such/); expect(s.calls.every(c => c.model === tiers.small)).toBe(true);
   });
+  it('keeps the cost of paid calls when a later call throws, and never throws itself', async () => {
+    const { db, schema } = setup(); let n = 0;
+    const client = createMockClient((_m, msgs) => { if (isVerify(msgs)) throw new Error('OpenRouter failed after 3 attempts: HTTP 502'); n++; return GOOD; });
+    const o = await runTask({ task: { id: 't', question: money }, policy: POLICIES.P3, client, db, schema, tiers });
+    expect(n).toBe(1); expect(o.answer).toBeNull(); expect(o.error).toMatch(/client failure.*502/);
+    expect(o.calls.length).toBe(1); expect(o.costUsd).toBeGreaterThan(0); expect(o.promptTokens).toBeGreaterThan(0);
+  });
+  it('on the large tier a verifier rejection without a correction keeps the original answer and is flagged', async () => {
+    const { db, schema } = setup();
+    const client = createMockClient((_m, msgs) => (isVerify(msgs) ? J({ verdict: 'incorrect', corrected_sql: null, reason: 'doubt' }) : GOOD));
+    const o = await runTask({ task: { id: 't', question: hard }, policy: POLICIES.V, client, db, schema, tiers });
+    expect(o.route).toBe('large'); expect(o.answer).toBe(20); expect(o.verdict).toBe('incorrect'); expect(o.verifierRejected).toBe(true); expect(o.escalated).toBe(false); expect(o.error).toBeNull();
+  });
+  it('records an unparseable verifier reply as such and keeps the answer', async () => {
+    const { db, schema } = setup();
+    const client = createMockClient((_m, msgs) => (isVerify(msgs) ? 'I am not sure' : GOOD));
+    const o = await runTask({ task: { id: 't', question: hard }, policy: POLICIES.V, client, db, schema, tiers });
+    expect(o.answer).toBe(20); expect(o.verdict).toBe('unparseable'); expect(o.verifierRejected).toBe(false); expect(o.sql).toBe('SELECT COUNT(*) FROM customers');
+  });
   it('never leaks tier or gold to the model', async () => {
     const { db, schema } = setup(); const client = createMockClient(() => GOOD);
     await runTask({ task: { id: 't', question: easy, tier: 1, gold: 20 } as never, policy: POLICIES.P3, client, db, schema, tiers });
