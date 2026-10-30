@@ -154,3 +154,20 @@ Format per entry: **Decision** — what was chosen. **Why** — the reasons. **R
 **Rejected.** gpt-oss-120b and gpt-5.4-nano — nearly as accurate as the flagship here, so the ladder would again show nothing about verification. qwen3-32b and mistral-small — too slow (p95 50 s and 15 s). gemini-2.5-flash-lite — slower and less accurate than llama at the same price.
 
 **Note.** The baseline (P0) is unchanged; the robustness experiment R3 (model swap) will swap llama for `qwen/qwen3.7-flash` as planned.
+
+## D-018 · 2026-10-31 · Router threshold frozen at θ = 4 (dev sweep)
+
+**Measured (P1 = router only, full schema, no verification; dev, 150 tasks; small = llama-3.3-70b, large = sonnet-5.5).** Floors from P0: accuracy ≥ 98.0 %, p95 ≤ 4 213 ms.
+
+| θ | accuracy | T1 / T2 / T3 | p95 | cost / success | routed small | floors |
+|---:|---:|---|---:|---:|---:|---|
+| 3 | 97.3 % | 98 / 94 / 100 % | 2 706 ms | $0.0054 | 45 % | ❌ acc ✅ p95 |
+| **4** | **98.0 %** | 100 / 94 / 100 % | 3 524 ms | **$0.0047** | 52 % | ✅ acc ✅ p95 |
+| 5 | 96.7 % | 98 / 92 / 100 % | 4 844 ms | $0.0035 | 70 % | ❌ acc ❌ p95 |
+| 6 | 96.0 %* | 98 / 92 / 98 % | 8 749 ms | $0.0029 | 77 % | ❌ acc ❌ p95 |
+
+\* three tasks of the θ = 6 run were lost to an insufficient-credit error and are not counted; the p95 verdict stands regardless. Small-only (S, llama) for reference: 84.7 %, T3 66 %, p95 7 006 ms, $0.0003.
+
+**Decision.** θ = 4, the only setting that meets both floors; it is also the value that had been set a priori in `src/config.ts`, so it is confirmed rather than tuned. Higher θ saves more but lets tier-2 money questions reach the small model, where the misses are; the selective verifier (P3) targets exactly those, which is the next rung of the ladder.
+
+**Note on budget.** The OpenRouter balance ran out mid-sweep (HTTP 402). Affected rows were removed and re-run; the client now aborts a run on 401/402/403 instead of logging task failures. Remaining experiments wait for a top-up.
