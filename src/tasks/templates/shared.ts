@@ -22,7 +22,6 @@ export interface Template {
 /** Line revenue as defined in the glossary. Alias `oi` for order_items. */
 export const REVENUE = 'oi.quantity * oi.unit_price * (1 - oi.discount_pct / 100.0)';
 export const YEARS = [2024, 2025] as const;
-export const QUARTERS: Record<string, [string, string]> = { Q1: ['01-01', '03-31'], Q2: ['04-01', '06-30'], Q3: ['07-01', '09-30'], Q4: ['10-01', '12-31'] };
 export const SEGMENTS = ['retail', 'wholesale', 'enterprise'] as const;
 export const STATUSES = ['pending', 'shipped', 'delivered', 'cancelled', 'returned'] as const;
 export const PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;

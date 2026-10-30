@@ -13,10 +13,10 @@ DB=data/company.sqlite
 [ -f data/r2_arabic.jsonl ] || npx tsx src/cli.ts gen-tasks --db "$DB" --seed 2002 --n 90 --lang ar --out data/r2_arabic.jsonl
 [ -f data/r3_modelswap.jsonl ] || npx tsx src/cli.ts gen-tasks --db "$DB" --seed 2003 --n 90 --out data/r3_modelswap.jsonl
 
-run() { # policy taskset db extra...
+run() { # policy taskset db extra...   (log path = defaultRunPath: results/runs/<taskset>-<policy>[-thetaN][-small-...].jsonl)
   local policy="$1" tasks="$2" db="$3"; shift 3
-  local name; name="$(basename "$tasks" .jsonl)"
-  npx tsx src/cli.ts eval --policy "$policy" --tasks "$tasks" --db "$db" --out "results/runs/${name}-${policy}$( [ $# -gt 0 ] && printf -- '-%s' "$@" | tr -d ' /:' ).jsonl" --theta "$THETA" "$@"
+  if [ "$THETA" != "4" ]; then set -- --theta "$THETA" "$@"; fi
+  npx tsx src/cli.ts eval --policy "$policy" --tasks "$tasks" --db "$db" "$@"
 }
 
 echo "== dev ladder (theta=$THETA)"
@@ -32,6 +32,5 @@ echo "== R3 small-model swap (P3 with default small, then qwen)"
 run P3 data/r3_modelswap.jsonl "$DB"
 run P3 data/r3_modelswap.jsonl "$DB" --small qwen/qwen3.7-flash
 
-echo "== report"
-npx tsx src/cli.ts report --baseline P0 --md results/report.md --html results/report.html \
-  --runs results/runs/dev-P0.jsonl,results/runs/dev-S.jsonl,results/runs/dev-P1.jsonl,results/runs/dev-P2.jsonl,results/runs/dev-P3.jsonl,results/runs/dev-V.jsonl
+echo "== report (results/report.md + results/report.html)"
+npx tsx scripts/build-report.ts

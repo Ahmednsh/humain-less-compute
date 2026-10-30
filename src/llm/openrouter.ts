@@ -70,8 +70,9 @@ export function createOpenRouterClient(o: OpenRouterOptions): LlmClient {
       if (!res.ok) {
         const msg = typeof j.error === 'string' ? j.error : j.error?.message ?? JSON.stringify(j);
         const err = new Error(`OpenRouter HTTP ${res.status}: ${msg}`) as Error & { fatal?: boolean };
-        // 401/402/403: the key or the balance is the problem, not this request — every further call would fail too.
-        if (res.status === 401 || res.status === 402 || res.status === 403) err.fatal = true;
+        // 400/401/402/403/404: key, balance, model id or request parameters are the problem, not this task —
+        // every further call would fail the same way, so the run aborts instead of logging 150 zero-cost failures.
+        if ([400, 401, 402, 403, 404].includes(res.status)) err.fatal = true;
         throw err;
       }
       const u = j.usage ?? {};

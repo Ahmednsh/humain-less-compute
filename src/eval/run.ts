@@ -82,6 +82,13 @@ export async function runEval(a: RunEvalArgs): Promise<RunRow[]> {
   const existing = readRunRows(a.outPath);
   const foreign = existing.find(r => r.policy !== a.policyName);
   if (foreign) throw new Error(`${a.outPath} already holds rows for policy ${foreign.policy}; refusing to resume policy ${a.policyName} into it. Use a different --out.`);
+  const first = existing[0];
+  if (first) {
+    // Same policy but different thresholds or (used) models is a different experiment; never merge them.
+    if (JSON.stringify(first.thresholds) !== JSON.stringify(thresholds)) throw new Error(`${a.outPath} was run with thresholds ${JSON.stringify(first.thresholds)}; current are ${JSON.stringify(thresholds)}. Use a different --out.`);
+    const used: ('small' | 'large')[] = a.policy.tier === 'auto' ? ['small', 'large'] : [a.policy.tier];
+    for (const t of used) if (first.models?.[t] !== a.tiers[t]) throw new Error(`${a.outPath} was run with ${t}=${first.models?.[t]}; current is ${a.tiers[t]}. Use a different --out.`);
+  }
   const done = new Map(existing.map(r => [r.taskId, r]));
   const limit = semaphore(a.concurrency ?? 4);
   const values = buildValueIndex(a.db);
@@ -113,6 +120,12 @@ function toRow(runId: string, a: RunEvalArgs, thresholds: Thresholds, task: Task
     tablesSent: o.tablesSent, calls: o.calls, promptTokens: o.promptTokens, completionTokens: o.completionTokens, costUsd: o.costUsd, latencyMs: Math.round(o.latencyMs),
     repairs: o.attempts.reduce((s, x) => s + x.repairs, 0), routerScore: o.routerScore, error: o.error, ts: new Date().toISOString(),
   };
+}
+
+/** Copy of a row without task content (gold, answer, SQL): what gets committed for held-out runs. */
+export function redactRow(r: RunRow): Omit<RunRow, 'gold' | 'answer' | 'sql'> & { redacted: true } {
+  const { gold: _g, answer: _a, sql: _s, ...rest } = r;
+  return { ...rest, redacted: true };
 }
 
 /** Only reached if something outside the controller throws (the controller itself never does). */

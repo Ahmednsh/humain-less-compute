@@ -35,7 +35,7 @@ describe('openrouter client', () => {
     const r = await createOpenRouterClient({ apiKey: 'k', fetchImpl, backoffMs: 1 }).chat('anthropic/claude-haiku-5.5', []);
     expect(r.text).toBe('ok'); expect(n).toBe(3);
   });
-  it('records finish_reason and reasoning tokens, asks for reasoning off and a generous max_tokens', async () => {
+  it('records finish_reason and reasoning tokens, sends low reasoning effort and a generous max_tokens', async () => {
     let seen: Record<string, unknown> = {};
     const fetchImpl: FetchLike = async (_u, init) => { seen = JSON.parse(String(init?.body)); return ok({ choices: [{ message: { content: 'x' }, finish_reason: 'length' }], usage: { prompt_tokens: 5, completion_tokens: 900, completion_tokens_details: { reasoning_tokens: 880 }, cost: 0.001 } }); };
     const r = await createOpenRouterClient({ apiKey: 'k', fetchImpl }).chat('m', []);
@@ -55,7 +55,8 @@ describe('openrouter client', () => {
   });
   it('does not retry a 400 and surfaces the body', async () => {
     let n = 0; const fetchImpl: FetchLike = async () => { n++; return ok({ error: { message: 'bad model' } }, 400); };
-    await expect(createOpenRouterClient({ apiKey: 'k', fetchImpl, backoffMs: 1 }).chat('m', [])).rejects.toThrow(/400.*bad model/);
+    const err = (await createOpenRouterClient({ apiKey: 'k', fetchImpl, backoffMs: 1 }).chat('m', []).catch(e => e as Error & { fatal?: boolean })) as Error & { fatal?: boolean };
+    expect(err.message).toMatch(/400.*bad model/); expect(err.fatal).toBe(true);
     expect(n).toBe(1);
   });
   it('limits concurrency', async () => {

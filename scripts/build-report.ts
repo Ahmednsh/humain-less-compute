@@ -23,11 +23,11 @@ const sections: ReportSection[] = [
     title: 'Ablation ladder — dev set (150 tasks, 50 per tier)',
     note: 'Baseline P0 = claude-sonnet-5.5 on every question with the full 12-table schema, glossary and 9 examples. Small tier = meta-llama/llama-3.3-70b-instruct (bake-off, D-017). θ = 4 (sweep, D-018). P2 and P3 are iteration 2 (D-019); iteration-1 rows are in EXPERIMENTS.md.',
     baselineName: 'P0',
-    rows: rows('dev-P0', 'dev-S', ['dev-P1-theta4', '+ router · dev-P1-theta4'], 'dev-P2', 'dev-P3', 'dev-V'),
+    rows: rows('dev-P0', 'dev-S', ['dev-P1-theta4', '+ router (θ=4) · dev-P1-theta4'], ['dev-P1', '+ router (θ=4) · dev-P1'], 'dev-P2', 'dev-P3', 'dev-V'),
   },
   {
     title: 'Held-out set — 150 unseen tasks incl. 6 never-seen question types, generated with a secret seed outside the repository, run once after freezing all thresholds',
-    note: 'Nobody looked at these tasks or their answers; only this aggregate was read.',
+    note: 'The task file was never opened. After the single run only this aggregate and the template/route of each miss were read; the committed per-task log is redacted (no gold, answer or SQL) and the full log lives outside the repository.',
     baselineName: 'P0',
     rows: rows('holdout-P0', 'holdout-P3'),
   },

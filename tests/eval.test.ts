@@ -76,6 +76,26 @@ describe('runEval', () => {
     await expect(runEval({ runId: 'r5', policyName: 'S', policy: POLICIES.S, tasks, client, db, schema, tiers, outPath: out })).rejects.toThrow(/402/);
     expect(existsSync(out) ? readFileSync(out, 'utf8').trim() : '').toBe('');
   });
+  it('refuses to resume a log run with different thresholds or a different used model', async () => {
+    const db = openDb(':memory:'); createSchema(db); generateCompany(db, 1, { customers: 20, products: 10, employees: 5, orders: 100, tickets: 10 });
+    const schema = introspectSchema(db); const tasks = generateTasks(db, { seed: 1, n: 2, holdout: false, lang: 'en' });
+    const client = createMockClient(() => JSON.stringify({ sql: 'SELECT 1' }));
+    const out = join(mkdtempSync(join(tmpdir(), 'lc-')), 'run.jsonl');
+    const base = { runId: 'r6', policyName: 'P1', policy: POLICIES.P1, tasks, client, db, schema, tiers, outPath: out };
+    await runEval(base);
+    await expect(runEval({ ...base, thresholds: { routerHi: 6, verifyConfidence: 0.75, verifyComplexity: 3, maxRepairs: { small: 1, large: 2 } } })).rejects.toThrow(/thresholds/);
+    await expect(runEval({ ...base, tiers: { ...tiers, small: 'qwen/qwen3.7-flash' } })).rejects.toThrow(/small=/);
+    // P0 does not use the small tier, so a different small model is not a different P0 experiment
+    const out2 = join(mkdtempSync(join(tmpdir(), 'lc-')), 'run.jsonl');
+    await runEval({ ...base, policyName: 'P0', policy: POLICIES.P0, outPath: out2 });
+    expect((await runEval({ ...base, policyName: 'P0', policy: POLICIES.P0, outPath: out2, tiers: { ...tiers, small: 'other' } })).length).toBe(2);
+  });
+  it('redactRow strips task content but keeps what the report needs', async () => {
+    const { redactRow } = await import('../src/eval/run.js');
+    const r = redactRow(row({ gold: 42, answer: 42, sql: 'SELECT 42' }));
+    expect(r).not.toHaveProperty('gold'); expect(r).not.toHaveProperty('answer'); expect(r).not.toHaveProperty('sql');
+    expect(r.redacted).toBe(true); expect(r.correct).toBe(true); expect(r.costUsd).toBe(0.01); expect(r.calls).toEqual([]);
+  });
   it('records a client failure as an error row instead of aborting the run', async () => {
     const db = openDb(':memory:'); createSchema(db); generateCompany(db, 1, { customers: 20, products: 10, employees: 5, orders: 100, tickets: 10 });
     const schema = introspectSchema(db); const tasks = generateTasks(db, { seed: 1, n: 3, holdout: false, lang: 'en' });

@@ -10,7 +10,7 @@ import { createOpenRouterClient } from './llm/openrouter.js';
 import { createMockClient } from './llm/mock.js';
 import type { LlmClient } from './llm/types.js';
 import { POLICIES, POLICY_LABELS, THRESHOLDS, loadApiKey, resolveTiers, type PolicyName } from './config.js';
-import { runEval, readRunRows, type RunRow } from './eval/run.js';
+import { runEval, readRunRows, redactRow, type RunRow } from './eval/run.js';
 import { summarize } from './eval/metrics.js';
 import { appendExperimentLog, renderHtml, renderMarkdown, type NamedSummary } from './eval/report.js';
 import { parseArgs, str, num, bool, isInsideRepo, defaultRunPath, type Flags } from './util/args.js';
@@ -72,15 +72,22 @@ async function evalCmd(flags: Flags): Promise<void> {
   const mock = bool(flags, 'mock');
   const client = mock ? mockFor(tasks) : createOpenRouterClient({ apiKey: loadApiKey(), concurrency: num(flags, 'concurrency', 4) });
   const taskset = basename(tasksPath).replace(/\.jsonl$/, '');
-  const outPath = str(flags, 'out', defaultRunPath(policyName, tasksPath, flags));
-  const runId = basename(outPath).replace(/\.jsonl$/, '');
+  // A task file outside the repository is a held-out set: its full per-task log (gold, answers, SQL) stays beside it,
+  // only a redacted copy is written into results/runs/, and no task content is printed to the console.
+  const heldOut = !isInsideRepo(tasksPath, resolve('.'));
+  const heldOutDir = heldOut ? resolve(dirname(tasksPath), 'runs') : null;
+  const repoPath = str(flags, 'out', defaultRunPath(policyName, tasksPath, flags));
+  if (heldOut && isInsideRepo(resolve(tasksPath), resolve('.'))) throw new Error('unreachable');
+  const outPath = heldOutDir ? resolve(heldOutDir, basename(repoPath)) : repoPath;
+  const runId = basename(repoPath).replace(/\.jsonl$/, '');
   const already = readRunRows(outPath).length;
 
   console.log(`policy ${policyName} (${POLICY_LABELS[policyName]}) · ${tasks.length} tasks from ${tasksPath} · small=${tiers.small} large=${tiers.large} · θ=${thresholds.routerHi}${mock ? ' · MOCK' : ''}`);
   console.log(`log ${outPath}${already ? ` · resuming: ${already} task(s) already logged will be skipped` : ''} · if this run is interrupted, re-run the same command to resume`);
-  const t0 = Date.now(); let spent = 0;
+  const t0 = Date.now(); let spent = 0, doneCount = 0;
   const onRow = (r: RunRow) => {
-    spent += r.costUsd;
+    spent += r.costUsd; doneCount++;
+    if (heldOut) { if (doneCount % 25 === 0) console.log(`  ${doneCount} held-out tasks done · $${spent.toFixed(4)} so far`); return; }
     console.log(`${r.correct ? '✔' : '✘'} ${r.taskId.padEnd(40)} route=${r.route.padEnd(5)} esc=${r.escalated ? 1 : 0} ver=${r.verified ? 1 : 0} rep=${r.repairs} tables=${r.tablesSent.length} $${r.costUsd.toFixed(4)} ${r.latencyMs}ms${r.error ? `  [${r.error.slice(0, 60)}]` : ''}`);
   };
   const exec = createWorkerExec(str(flags, 'db'), { timeoutMs: num(flags, 'sql-timeout', 15000), poolSize: Math.min(4, num(flags, 'concurrency', 4)) });
@@ -88,6 +95,11 @@ async function evalCmd(flags: Flags): Promise<void> {
   try { rows = await runEval({ runId, policyName, policy, tasks, client, db, schema, tiers, thresholds, outPath, concurrency: num(flags, 'concurrency', 4), onRow, exec }); }
   finally { exec.close(); }
   const s = summarize(rows);
+  if (heldOut) {
+    mkdirSync(dirname(repoPath), { recursive: true });
+    writeFileSync(repoPath, rows.map(r => JSON.stringify(redactRow(r))).join('\n') + '\n');
+    console.log(`held-out: full log kept outside the repository at ${outPath}; redacted copy (no gold/answer/sql) written to ${repoPath}`);
+  }
   console.log(`\ndone in ${((Date.now() - t0) / 1000).toFixed(0)}s · spent $${spent.toFixed(4)} this session · log ${outPath}\n`);
   console.log(renderMarkdown([{ name: policyName, label: POLICY_LABELS[policyName], s }], policyName));
   if (!mock) appendExperimentLog('results/EXPERIMENTS.md', { runId, policy: policyName, taskset, n: s.n, summary: s, notes: `${str(flags, 'notes', '')} small=${tiers.small} large=${tiers.large} θ=${thresholds.routerHi} conc=${num(flags, 'concurrency', 4)}`.trim() });

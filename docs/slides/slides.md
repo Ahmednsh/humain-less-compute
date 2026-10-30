@@ -17,7 +17,7 @@ Natural-language questions over a company database → SQL → answer, at the sa
 
 ## 2 · Problem
 
-Every question goes to the largest model, with the whole schema, a long glossary and eight examples, and the same verification whether the question is "how many cities are in Asir" or "which region grew most year-over-year after refunds".
+Every question goes to the largest model, with the whole schema, a long glossary and nine examples, and the same verification whether the question is "how many cities are in Asir" or "which region grew most year-over-year after refunds".
 
 - Most tokens are never read by the task.
 - Failed attempts still burn compute: **cost per task ≠ cost per successful task**.
@@ -27,7 +27,7 @@ Every question goes to the largest model, with the whole schema, a long glossary
 
 ## 3 · Proposed solution
 
-One controller in front of two model tiers (small: Claude Haiku 5.5, large: Claude Sonnet 5.5 via OpenRouter, ≈20× price gap):
+One controller in front of two model tiers (small: Llama 3.3 70B, large: Claude Sonnet 5.5, both via OpenRouter, ≈20× price gap; the small tier was chosen by a measured bake-off):
 
 1. **Route** — zero-token lexical difficulty score → small or large.
 2. **Prune context** — send only the tables the question needs (plus the FK join path), the glossary lines it needs, ≤ 2 examples.

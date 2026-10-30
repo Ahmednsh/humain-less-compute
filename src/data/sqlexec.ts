@@ -1,8 +1,10 @@
-import { Worker } from 'node:worker_threads';
+import { fork, type ChildProcess } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import { isSafeSelect, runReadOnly, type QueryResult } from './db.js';
 
-/** Executes model-written SQL. The worker variant enforces a wall-clock deadline (spec §3.1/§3.10). */
+/** Executes model-written SQL. The pooled variant enforces a wall-clock deadline (spec §3.1/§3.10). */
 export interface SqlExec {
   run(sql: string, opts?: { rowCap?: number }): Promise<QueryResult>;
   close(): void;
@@ -13,53 +15,49 @@ export function syncExec(db: DatabaseSync): SqlExec {
   return { run: async (sql, opts) => runReadOnly(db, sql, opts), close() { /* caller owns db */ } };
 }
 
-// Plain JS so it runs in a worker without the TypeScript loader.
-const WORKER_SRC = `
-const { parentPort, workerData } = require('node:worker_threads');
-const { DatabaseSync } = require('node:sqlite');
-const db = new DatabaseSync(workerData.path, { readOnly: true });
-parentPort.on('message', ({ id, sql, rowCap }) => {
-  try {
-    const stmt = db.prepare(sql);
-    const rows = []; let truncated = false;
-    for (const row of stmt.iterate()) { if (rows.length >= rowCap) { truncated = true; break; } rows.push(row); }
-    const columns = rows[0] ? Object.keys(rows[0]) : stmt.columns().map(c => c.name);
-    parentPort.postMessage({ id, result: { ok: true, rows, columns, truncated } });
-  } catch (e) {
-    parentPort.postMessage({ id, result: { ok: false, error: String(e && e.message || e) } });
-  }
-});
-`;
+const WORKER_PATH = join(dirname(fileURLToPath(import.meta.url)), 'sqlworker.cjs');
 
-interface Pending { resolve: (r: QueryResult) => void; timer: NodeJS.Timeout }
-interface Slot { worker: Worker; busy: boolean; pending: Pending | null; id: number }
+interface Job { sql: string; rowCap: number; resolve: (r: QueryResult) => void }
+interface Slot { child: ChildProcess; busy: boolean; id: number; pending: { resolve: (r: QueryResult) => void; timer: NodeJS.Timeout } | null }
 
 /**
- * A small pool of read-only worker connections. A statement that exceeds `timeoutMs` has its worker
- * terminated (the only way to interrupt a synchronous SQLite call) and replaced; the caller gets an error result.
+ * A small pool of read-only child processes. A statement that exceeds `timeoutMs` has its process killed
+ * (a synchronous SQLite call cannot be interrupted otherwise) and replaced; the caller gets an error result.
+ * `close()` resolves every queued or in-flight job with an error and leaves no process behind.
  */
 export function createWorkerExec(dbPath: string, opts: { timeoutMs?: number; poolSize?: number } = {}): SqlExec {
   const timeoutMs = opts.timeoutMs ?? 15_000;
   const size = Math.max(1, opts.poolSize ?? 2);
-  const queue: { sql: string; rowCap: number; resolve: (r: QueryResult) => void }[] = [];
+  const queue: Job[] = [];
   const slots: Slot[] = [];
   let closed = false;
+  let respawns = 0;
+
+  const finish = (s: Slot, result: QueryResult) => {
+    if (!s.pending) return;
+    clearTimeout(s.pending.timer);
+    const { resolve } = s.pending;
+    s.pending = null; s.busy = false;
+    resolve(result);
+  };
 
   const spawn = (slot: Slot | null): Slot => {
-    const worker = new Worker(WORKER_SRC, { eval: true, workerData: { path: dbPath } });
-    const s: Slot = slot ?? { worker, busy: false, pending: null, id: 0 };
-    s.worker = worker; s.busy = false; s.pending = null;
-    worker.on('message', (m: { id: number; result: QueryResult }) => {
-      if (!s.pending || m.id !== s.id) return;
-      clearTimeout(s.pending.timer);
-      const { resolve } = s.pending; s.pending = null; s.busy = false;
-      resolve(m.result); pump();
+    // execArgv: [] — do not inherit the parent's loader flags (tsx, --input-type); the worker is plain CommonJS.
+    const child = fork(WORKER_PATH, [dbPath], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'], execArgv: [] });
+    const s: Slot = slot ?? { child, busy: false, id: 0, pending: null };
+    s.child = child; s.busy = false; s.pending = null;
+    child.on('message', (m: { id?: number; result?: QueryResult; ready?: boolean }) => {
+      if (m.ready || !m.result || m.id !== s.id) return;
+      finish(s, m.result); pump();
     });
-    worker.on('error', (e) => {
-      if (s.pending) { clearTimeout(s.pending.timer); const { resolve } = s.pending; s.pending = null; resolve({ ok: false, error: `worker error: ${e.message}` }); }
-      if (!closed) spawn(s); pump();
+    child.on('exit', () => {
+      if (closed) return;
+      // crashed or killed mid-job: fail that job and replace the process (bounded)
+      if (s.pending) finish(s, { ok: false, error: 'sql worker exited unexpectedly' });
+      if (respawns++ < 50) spawn(s); else s.busy = true; // retire the slot after too many crashes
+      pump();
     });
-    worker.unref();
+    child.unref();
     return s;
   };
   for (let i = 0; i < size; i++) slots.push(spawn(null));
@@ -72,15 +70,16 @@ export function createWorkerExec(dbPath: string, opts: { timeoutMs?: number; poo
       s.busy = true; s.id++;
       const id = s.id;
       const timer = setTimeout(() => {
-        if (!s.pending || s.id !== id) return;
+        if (closed || !s.pending || s.id !== id) return;
         const { resolve } = s.pending; s.pending = null;
-        void s.worker.terminate();
-        spawn(s);
+        s.child.removeAllListeners('exit');
+        s.child.kill('SIGKILL');
         resolve({ ok: false, error: `statement timeout after ${timeoutMs} ms` });
+        spawn(s);
         pump();
       }, timeoutMs);
       s.pending = { resolve: job.resolve, timer };
-      s.worker.postMessage({ id, sql: job.sql, rowCap: job.rowCap });
+      s.child.send({ id, sql: job.sql, rowCap: job.rowCap });
     }
   };
 
@@ -91,6 +90,15 @@ export function createWorkerExec(dbPath: string, opts: { timeoutMs?: number; poo
       if (closed) return Promise.resolve({ ok: false, error: 'executor closed' });
       return new Promise<QueryResult>(resolve => { queue.push({ sql: sql.trim().replace(/;\s*$/, ''), rowCap: o.rowCap ?? 200, resolve }); pump(); });
     },
-    close() { closed = true; for (const s of slots) void s.worker.terminate(); },
+    close() {
+      if (closed) return;
+      closed = true;
+      for (const job of queue.splice(0)) job.resolve({ ok: false, error: 'executor closed' });
+      for (const s of slots) {
+        if (s.pending) finish(s, { ok: false, error: 'executor closed' });
+        s.child.removeAllListeners('exit');
+        s.child.kill('SIGKILL');
+      }
+    },
   };
 }
