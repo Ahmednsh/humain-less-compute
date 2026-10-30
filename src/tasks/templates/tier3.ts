@@ -44,7 +44,7 @@ export const TIER3: Template[] = [
       const span = win.key === 'full' ? 'from 2024 to 2025' : `comparing ${win.en}2025 with ${win.en}2024`;
       const spanAr = win.key === 'full' ? 'من 2024 إلى 2025' : `بمقارنة ${win.ar}2025 مع ${win.ar}2024`;
       return { params: { direction: dir, window: win.key },
-        en: [`Which region had the ${dir} year-over-year growth in delivered revenue ${span}?`, `${span.charAt(0).toUpperCase() + span.slice(1)}, which region's delivered revenue changed by the ${dir === 'highest' ? 'largest' : 'smallest'} percentage?`],
+        en: [`Which region had the ${dir} year-over-year growth in delivered revenue ${span}? (A decline is lower growth than any increase; do not use absolute change.)`, `${span.charAt(0).toUpperCase() + span.slice(1)}, which region had the ${dir === 'highest' ? 'strongest' : 'weakest'} percentage growth in delivered revenue? A decline counts as weaker growth than any increase.`],
         ar: [`ما المنطقة التي سجّلت ${dir === 'highest' ? 'أعلى' : 'أدنى'} نسبة نمو في إيرادات الطلبات المسلّمة ${spanAr}؟`], sql: topLabel(ranked) };
     },
   }),

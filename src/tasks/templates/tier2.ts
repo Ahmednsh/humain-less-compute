@@ -9,7 +9,7 @@ export const TIER2: Template[] = [
       const sql = `SELECT ROUND(SUM(${REVENUE}), 2) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.id JOIN customers c ON c.id = o.customer_id JOIN cities ci ON ci.id = c.city_id JOIN regions r ON r.id = ci.region_id WHERE o.status = 'delivered' AND r.name = '${esc(r.name)}' AND ${inPeriod('o.order_date', p)}`;
       if (scalar(db, sql) == null) return null;
       return { params: { region: r.name, period: p.label },
-        en: [`What was the total delivered revenue for the ${r.name} region in ${p.label}?`, `How much revenue did delivered orders from customers in ${r.name} generate during ${p.label}?`],
+        en: [`What was the total delivered revenue for the ${r.name} region in ${p.label}?`, `How much revenue did delivered orders from customers located in the ${r.name} region generate during ${p.label}?`],
         ar: [`كم إجمالي إيرادات الطلبات المسلّمة لعملاء منطقة ${r.name} خلال ${p.ar}؟`], sql };
     },
   }),
