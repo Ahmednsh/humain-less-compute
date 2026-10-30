@@ -34,7 +34,7 @@ R1: tables and columns renamed (customers→clients, orders→sales_orders, orde
 
 | policy | n | accuracy | T1 / T2 / T3 | p50 | p95 | tokens in/out per task | cost / task | cost / success | Δ cost / success | small % | escalated % | verified % | floors |
 |---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| **P0** P0 on renamed schema · r1_renamed-P0 | 56 | 98.2% | 94% / 100% / 100% | 1727 ms | 2847 ms | 3784 / 178 | $0.0093 | $0.0095 | 0% | 0% | 0% | 0% | reference |
+| **P0** P0 on renamed schema · r1_renamed-P0 | 60 | 98.3% | 94% / 100% / 100% | 1760 ms | 2847 ms | 3784 / 176 | $0.0093 | $0.0095 | 0% | 0% | 0% | 0% | reference |
 | **P3** R1 renamed schema · r1_renamed-P3 | 60 | 100.0% | 100% / 100% / 100% | 1543 ms | 4239 ms | 1152 / 183 | $0.0034 | $0.0034 | -64% | 53% | 0% | 12% | ✅ acc ❌ p95 |
 | **P3** R2 Arabic questions · r2_arabic-P3 | 60 | 100.0% | 100% / 100% / 100% | 1716 ms | 4538 ms | 831 / 200 | $0.0031 | $0.0031 | -67% | 53% | 0% | 8% | ✅ acc ❌ p95 |
 | **P3** R3 reference (llama small) · r3_modelswap-P3 | 60 | 98.3% | 96% / 100% / 100% | 1541 ms | 4177 ms | 1037 / 154 | $0.0028 | $0.0029 | -70% | 63% | 0% | 12% | ✅ acc ❌ p95 |
