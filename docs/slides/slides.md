@@ -11,7 +11,7 @@ Natural-language questions over a company database → SQL → answer, at the sa
 
 - Challenge 2 — Deliver AI with Less Compute
 - Ahmed Sharahili · solo · 30–31 Oct 2026
-- Repo: github.com/Ahmednsh/humain-less-compute · demo video link
+- Repo: github.com/Ahmednsh/humain-less-compute · demo video: link to be added on the project page once recorded
 
 ---
 
@@ -97,5 +97,5 @@ Robustness (P3, no retuning, 60 tasks each): renamed schema 100 % ($0.0034; flag
 Same answers, 68 % less compute per correct answer on unseen tasks — and the evidence to prove it. (Speed: pruning alone is faster than the baseline; adding verification costs 0.1–0.5 s of p95.)
 
 - Repo + one-command reproduction: github.com/Ahmednsh/humain-less-compute
-- Demo video: «link»
+- Demo video: link to be added on the project page once recorded
 - Results page: `results/report.html` · decision log: `DECISIONS.md`

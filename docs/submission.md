@@ -9,7 +9,7 @@ A budget-aware controller for "ask-your-data" analytics that routes each questio
 - Source code: https://github.com/Ahmednsh/humain-less-compute
 - Presentation: `docs/slides/deck.pdf` (9 slides; source `docs/slides/deck.pptx`, generator `docs/slides/build-deck.cjs`)
 - Results page: `results/report.html` in the repository (also `results/report.md`)
-- Demo video: «paste link»
+- Demo video: to be recorded by the participant (script: docs/slides/demo-script.md); paste the public link here before publishing
 
 **Issue & Solution**
 Most LLM products send every request to their largest model with the whole schema, a long glossary and many examples, and apply the same checking to a trivial lookup and to a multi-join financial question. Most of those tokens are never read by the task, failed attempts still burn compute, and "cheap" only counts if the answer is right and on time.
