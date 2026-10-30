@@ -7,6 +7,7 @@ A budget-aware controller for "ask-your-data" analytics that routes each questio
 
 **Links**
 - Source code: https://github.com/Ahmednsh/humain-less-compute
+- Presentation: `docs/slides/deck.pdf` (9 slides; source `docs/slides/deck.pptx`, generator `docs/slides/build-deck.cjs`)
 - Results page: `results/report.html` in the repository (also `results/report.md`)
 - Demo video: «paste link»
 
