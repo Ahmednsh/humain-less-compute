@@ -24,7 +24,7 @@ Measured on 150 dev tasks over a synthetic 12-table company database with exact 
 3. **Verify where it pays** — free checks on every answer (SQL ran, non-empty, shape matches); a large-model verification only for risky small-tier answers; one escalation if it fails. Failed and verified attempts are counted in the cost.
 
 **Testing & evidence**
-102 unit and component tests (every gold SQL hand-checked on a fixture; pruner recall measured at 100 %); a mock end-to-end run in CI on every push; every real run is a committed JSONL log and a row in `results/EXPERIMENTS.md`; the report is rebuilt from the logs with one command. Decision log with chosen / why / rejected for 21 decisions in `DECISIONS.md`.
+109 unit and component tests (every gold SQL hand-checked on a fixture; pruner recall measured at 100 %); a mock end-to-end run in CI on every push; every real run is a committed JSONL log and a row in `results/EXPERIMENTS.md`; the report is rebuilt from the logs with one command. Decision log with chosen / why / rejected for 21 decisions in `DECISIONS.md`.
 
 **Limitations**
 Synthetic data and templated questions (paraphrased, not human-written); one database domain; a lexical router; model availability and prices are a 30 Oct 2026 snapshot of OpenRouter; the p95 floor (1.25 × a single flagship call) is missed by the full system by 0.1–0.5 s, pruning alone meets it; two days, one person.

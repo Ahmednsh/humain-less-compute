@@ -28,16 +28,34 @@ The task file was never opened. After the single run only this aggregate and the
 
 Floors (relative to P0): accuracy ≥ baseline − 2 pp; p95 latency ≤ 1.25× baseline. Cost per success = total spend ÷ correct answers (failed and escalated attempts included).
 
-## Robustness — the full system (P3) under changed conditions, no retuning (first 60 tasks of each 90-task set)
+## Robustness R1 — renamed schema, no retuning (first 60 tasks of a 90-task set)
 
-R1: tables and columns renamed (customers→clients, orders→sales_orders, order_items→sales_order_lines, unit_price→price_per_unit, …). R2: the same question types phrased in Arabic. R3: the small tier swapped for qwen/qwen3.7-flash. The dev-set P3 row and, where budget allowed, a P0 row on the same set give the reference.
+Tables and columns renamed (customers→clients, orders→sales_orders, order_items→sales_order_lines, unit_price→price_per_unit, …). P0 was run on the same renamed set, so Δ and floors are against it.
 
 | policy | n | accuracy | T1 / T2 / T3 | p50 | p95 | tokens in/out per task | cost / task | cost / success | Δ cost / success | small % | escalated % | verified % | floors |
 |---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
 | **P0** P0 on renamed schema · r1_renamed-P0 | 60 | 98.3% | 94% / 100% / 100% | 1760 ms | 2847 ms | 3784 / 176 | $0.0093 | $0.0095 | 0% | 0% | 0% | 0% | reference |
 | **P3** R1 renamed schema · r1_renamed-P3 | 60 | 100.0% | 100% / 100% / 100% | 1543 ms | 4239 ms | 1152 / 183 | $0.0034 | $0.0034 | -64% | 53% | 0% | 12% | ✅ acc ❌ p95 |
-| **P3** R2 Arabic questions · r2_arabic-P3 | 60 | 100.0% | 100% / 100% / 100% | 1716 ms | 4538 ms | 831 / 200 | $0.0031 | $0.0031 | -67% | 53% | 0% | 8% | ✅ acc ❌ p95 |
-| **P3** R3 reference (llama small) · r3_modelswap-P3 | 60 | 98.3% | 96% / 100% / 100% | 1541 ms | 4177 ms | 1037 / 154 | $0.0028 | $0.0029 | -70% | 63% | 0% | 12% | ✅ acc ❌ p95 |
-| **P3** R3 small = qwen3.7-flash · r3_modelswap-P3-small-qwen | 60 | 100.0% | 100% / 100% / 100% | 4225 ms | 28985 ms | 1150 / 749 | $0.0027 | $0.0027 | -71% | 63% | 5% | 7% | ✅ acc ❌ p95 |
 
 Floors (relative to P0): accuracy ≥ baseline − 2 pp; p95 latency ≤ 1.25× baseline. Cost per success = total spend ÷ correct answers (failed and escalated attempts included).
+
+## Robustness R2 — Arabic questions, no retuning (first 60 tasks of a 90-task set)
+
+The same question types phrased in Arabic. No P0 run on this set, so no Δ or floors; the dev-set P3 row above ($0.0030, 100 %) is the informal reference.
+
+| policy | n | accuracy | T1 / T2 / T3 | p50 | p95 | tokens in/out per task | cost / task | cost / success | Δ cost / success | small % | escalated % | verified % | floors |
+|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| **P3** R2 Arabic questions · r2_arabic-P3 | 60 | 100.0% | 100% / 100% / 100% | 1716 ms | 4538 ms | 831 / 200 | $0.0031 | $0.0031 | n/a | 53% | 0% | 8% | — |
+
+No baseline row in this table, so Δ and floors are not computed. Cost per success = total spend ÷ correct answers (failed and escalated attempts included).
+
+## Robustness R3 — small tier swapped, no retuning (first 60 tasks of a 90-task set)
+
+P3 with the default small tier (llama-3.3-70b) on the same 60 tasks, then with qwen/qwen3.7-flash. No P0 run on this set, so no Δ or floors; the two rows compare with each other.
+
+| policy | n | accuracy | T1 / T2 / T3 | p50 | p95 | tokens in/out per task | cost / task | cost / success | Δ cost / success | small % | escalated % | verified % | floors |
+|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| **P3** R3 reference (llama small) · r3_modelswap-P3 | 60 | 98.3% | 96% / 100% / 100% | 1541 ms | 4177 ms | 1037 / 154 | $0.0028 | $0.0029 | n/a | 63% | 0% | 12% | — |
+| **P3** R3 small = qwen3.7-flash · r3_modelswap-P3-small-qwen | 60 | 100.0% | 100% / 100% / 100% | 4225 ms | 28985 ms | 1150 / 749 | $0.0027 | $0.0027 | n/a | 63% | 5% | 7% | — |
+
+No baseline row in this table, so Δ and floors are not computed. Cost per success = total spend ÷ correct answers (failed and escalated attempts included).

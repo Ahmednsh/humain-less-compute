@@ -31,3 +31,4 @@ tmp/
 data/*.sqlite
 data/*.jsonl
 results/runs/smoke.jsonl
+results/runs/test-holdout-*.jsonl

@@ -77,7 +77,6 @@ async function evalCmd(flags: Flags): Promise<void> {
   const heldOut = !isInsideRepo(tasksPath, resolve('.'));
   const heldOutDir = heldOut ? resolve(dirname(tasksPath), 'runs') : null;
   const repoPath = str(flags, 'out', defaultRunPath(policyName, tasksPath, flags));
-  if (heldOut && isInsideRepo(resolve(tasksPath), resolve('.'))) throw new Error('unreachable');
   const outPath = heldOutDir ? resolve(heldOutDir, basename(repoPath)) : repoPath;
   const runId = basename(repoPath).replace(/\.jsonl$/, '');
   const already = readRunRows(outPath).length;

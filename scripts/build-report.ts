@@ -31,11 +31,25 @@ const sections: ReportSection[] = [
     baselineName: 'P0',
     rows: rows('holdout-P0', 'holdout-P3'),
   },
+  // Robustness: one table per task set. Δ and floors are only meaningful against a baseline run on the SAME set,
+  // so R2 and R3 (no P0 run on their sets — budget) get no baseline rather than being compared with R1's.
   {
-    title: 'Robustness — the full system (P3) under changed conditions, no retuning (first 60 tasks of each 90-task set)',
-    note: 'R1: tables and columns renamed (customers→clients, orders→sales_orders, order_items→sales_order_lines, unit_price→price_per_unit, …). R2: the same question types phrased in Arabic. R3: the small tier swapped for qwen/qwen3.7-flash. The dev-set P3 row and, where budget allowed, a P0 row on the same set give the reference.',
+    title: 'Robustness R1 — renamed schema, no retuning (first 60 tasks of a 90-task set)',
+    note: 'Tables and columns renamed (customers→clients, orders→sales_orders, order_items→sales_order_lines, unit_price→price_per_unit, …). P0 was run on the same renamed set, so Δ and floors are against it.',
     baselineName: 'P0',
-    rows: rows(['r1_renamed-P0', 'P0 on renamed schema · r1_renamed-P0'], ['r1_renamed-P3', 'R1 renamed schema · r1_renamed-P3'], ['r2_arabic-P3', 'R2 Arabic questions · r2_arabic-P3'], ['r3_modelswap-P3', 'R3 reference (llama small) · r3_modelswap-P3'], ['r3_modelswap-P3-small-qwen-qwen3.7-flash', 'R3 small = qwen3.7-flash · r3_modelswap-P3-small-qwen']),
+    rows: rows(['r1_renamed-P0', 'P0 on renamed schema · r1_renamed-P0'], ['r1_renamed-P3', 'R1 renamed schema · r1_renamed-P3']),
+  },
+  {
+    title: 'Robustness R2 — Arabic questions, no retuning (first 60 tasks of a 90-task set)',
+    note: 'The same question types phrased in Arabic. No P0 run on this set, so no Δ or floors; the dev-set P3 row above ($0.0030, 100 %) is the informal reference.',
+    baselineName: 'none',
+    rows: rows(['r2_arabic-P3', 'R2 Arabic questions · r2_arabic-P3']),
+  },
+  {
+    title: 'Robustness R3 — small tier swapped, no retuning (first 60 tasks of a 90-task set)',
+    note: 'P3 with the default small tier (llama-3.3-70b) on the same 60 tasks, then with qwen/qwen3.7-flash. No P0 run on this set, so no Δ or floors; the two rows compare with each other.',
+    baselineName: 'none',
+    rows: rows(['r3_modelswap-P3', 'R3 reference (llama small) · r3_modelswap-P3'], ['r3_modelswap-P3-small-qwen-qwen3.7-flash', 'R3 small = qwen3.7-flash · r3_modelswap-P3-small-qwen']),
   },
 ];
 

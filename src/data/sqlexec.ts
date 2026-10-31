@@ -41,6 +41,13 @@ export function createWorkerExec(dbPath: string, opts: { timeoutMs?: number; poo
     resolve(result);
   };
 
+  /** Kill the slot's current process (silently: its 'exit' must not re-enter) and give the slot a fresh one; retire the slot after too many crashes. */
+  const replace = (s: Slot) => {
+    s.child.removeAllListeners('exit');
+    s.child.kill('SIGKILL');
+    if (respawns++ < 50) spawn(s); else s.busy = true;
+  };
+
   const spawn = (slot: Slot | null): Slot => {
     // execArgv: [] — do not inherit the parent's loader flags (tsx, --input-type); the worker is plain CommonJS.
     const child = fork(WORKER_PATH, [dbPath], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'], execArgv: [] });
@@ -50,11 +57,20 @@ export function createWorkerExec(dbPath: string, opts: { timeoutMs?: number; poo
       if (m.ready || !m.result || m.id !== s.id) return;
       finish(s, m.result); pump();
     });
+    child.on('error', (e) => {
+      // send() on a channel that closed before 'exit' fired, or a spawn failure. Without this listener Node turns the
+      // event into an uncaught exception and the whole run dies. Fail the job and replace the process at once, so the
+      // next pump() never talks to the dying one.
+      if (closed) return;
+      if (s.pending) finish(s, { ok: false, error: `sql worker error: ${e.message}` });
+      replace(s);
+      pump();
+    });
     child.on('exit', () => {
       if (closed) return;
       // crashed or killed mid-job: fail that job and replace the process (bounded)
       if (s.pending) finish(s, { ok: false, error: 'sql worker exited unexpectedly' });
-      if (respawns++ < 50) spawn(s); else s.busy = true; // retire the slot after too many crashes
+      replace(s);
       pump();
     });
     child.unref();
@@ -72,10 +88,8 @@ export function createWorkerExec(dbPath: string, opts: { timeoutMs?: number; poo
       const timer = setTimeout(() => {
         if (closed || !s.pending || s.id !== id) return;
         const { resolve } = s.pending; s.pending = null;
-        s.child.removeAllListeners('exit');
-        s.child.kill('SIGKILL');
+        replace(s);
         resolve({ ok: false, error: `statement timeout after ${timeoutMs} ms` });
-        spawn(s);
         pump();
       }, timeoutMs);
       s.pending = { resolve: job.resolve, timer };

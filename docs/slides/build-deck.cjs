@@ -157,7 +157,7 @@ txt(s, [
   { text: 'secret seed, file generated outside the repository, never opened', options: { bullet: true, breakLine: true } },
   { text: 'one run per policy after all thresholds were frozen', options: { bullet: true } },
 ], { x: 5.35, y: 3.6, w: 3.9, h: 1.0, fontSize: 11.5, color: C.text2, paraSpaceAfter: 2 });
-txt(s, '106 unit/component tests · pruner recall measured (100 % of tasks get every table their gold SQL needs, 2.6 of 12 sent) · mock end-to-end run in CI on every push · 21 logged decisions', { x: 0.6, y: 4.85, w: 8.8, h: 0.35, fontSize: 11, color: C.text2 });
+txt(s, '109 unit/component tests · pruner recall measured (100 % of tasks get every table their gold SQL needs, 2.6 of 12 sent) · mock end-to-end run in CI on every push · 21 logged decisions', { x: 0.6, y: 4.85, w: 8.8, h: 0.35, fontSize: 11, color: C.text2 });
 s.addNotes('Evaluation design. The floors and the held-out protocol were written in the decision log before any paid run.');
 
 // ---------- 6 results

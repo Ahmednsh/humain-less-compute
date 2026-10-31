@@ -44,7 +44,7 @@ Baseline P0 = `claude-sonnet-5.5` on every question with the full 12-table schem
 
 ## Status
 
-Submission state — code, 102 tests, CI, decision log (21 entries), results, slides (`docs/slides/`) and platform texts (`docs/submission.md`) complete. See `docs/superpowers/` for the spec and plan.
+Submission state — code, 109 tests, CI, decision log (21 entries), results, slides (`docs/slides/`) and platform texts (`docs/submission.md`) complete. See `docs/superpowers/` for the spec and plan.
 
 ## Quick start
 

@@ -112,6 +112,9 @@ describe('report', () => {
     const cand = summarize([row({ route: 'small', costUsd: 0.001 }), row({ route: 'small', costUsd: 0.001 }), row({ correct: false, costUsd: 0.001 })]);
     const md = renderMarkdown([{ name: 'P0', label: 'baseline', s: base }, { name: 'P3', label: 'full', s: cand }], 'P0');
     expect(md).toContain('P0'); expect(md).toMatch(/✅/); expect(md).toMatch(/cost \/ success/i); expect(md).toMatch(/-90%/);
+    // a table with no baseline row (robustness sets without their own P0) must not pretend to have one
+    const noBase = renderMarkdown([{ name: 'P3', label: 'R2', s: cand }], 'P0');
+    expect(noBase).not.toMatch(/reference/); expect(noBase).toContain('n/a'); expect(noBase).toContain('—');
     const html = renderHtml([{ name: 'P0', label: 'baseline', s: base }, { name: 'P3', label: 'full', s: cand }], 'P0');
     expect(html).toContain('<table'); expect(html).toContain('P3');
     const log = join(mkdtempSync(join(tmpdir(), 'lc-')), 'EXPERIMENTS.md');
