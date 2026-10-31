@@ -1,6 +1,6 @@
 # Demo recording — run of show (English narration, ≤ 3:00)
 
-Keep this file open on a second screen or phone while recording. Each block gives the clock time it should **start**, what to **DO** on screen (not read aloud), and what to **SAY** (read aloud, verbatim). Times assume a calm pace of about 140 words per minute; the default take leaves out the sentences in ⟨angle brackets⟩ and lands at about 2:50. Add a bracketed sentence only if you are ahead of the checkpoint before it.
+Keep this file open on a second screen or phone while recording. Each block gives the clock time it should **start**, what to **DO** on screen (not read aloud), and what to **SAY** (read aloud, verbatim). Times assume a calm pace of about 140 words per minute; the default take leaves out the sentences in ⟨angle brackets⟩ and lands at about 2:48. Add a bracketed sentence only if you are ahead of the checkpoint before it (the slide-1 one is worth adding first: it puts the headline number in the first twenty seconds).
 
 The demo set is `data/demo.jsonl` (8 tasks, easy → hard). Expected console lines, in order: price lookup `route=small tables=1`; count of cities `tables=2`; employees `route=small`; three revenue questions with `ver=1` (the fifth line is the Arabic one); margin ranking `route=large`; growth `route=large tables=5`. The run prints all eight in about 25 s. No `esc=1` appears on this set; the narration never promises one.
 
@@ -38,7 +38,7 @@ Windows open, in Alt+Tab order: slides → PowerShell → browser.
 **DO:** nothing on screen; slide 1 stays up.
 
 **SAY:**
-Companies send every question to their biggest model, with the whole schema and the whole history. Most of that compute is wasted. This is a budget-aware controller for ask-your-data analytics: per question it decides which model to use, which tables to send, and when a second opinion is worth paying for.
+Companies send every question to their biggest model, with the whole schema and the whole history. Most of that compute is wasted. This is a budget-aware controller for ask-your-data analytics: per question it decides which model to use, which tables to send, and when a second opinion is worth paying for. ⟨On one hundred and fifty unseen questions, it cut cost per correct answer by sixty-eight percent.⟩
 
 ### 0:22 → 0:32 · Slide 4
 
@@ -47,7 +47,7 @@ Companies send every question to their biggest model, with the whole schema and 
 **SAY:**
 The data is a twelve-table company database, and there are two model tiers, small and large, about twenty times apart in price.
 
-### 0:32 → 1:22 · PowerShell — the live run
+### 0:32 → 1:17 · PowerShell — the live run
 
 **DO:** **Alt+Tab** to PowerShell, press **Enter** on the first word of the first sentence. Lines appear one by one from about 0:35 to 0:58. Do not wait for them in silence and do not try to match each line as it prints: keep reading, and move the mouse pointer onto the line you are talking about (pointer on `tables=1` of line 1; on `ver=1` of lines 4–5; on `tables=5` of line 8).
 
@@ -60,13 +60,12 @@ Now a revenue total: that is a money number, so the small model's answer gets a 
 The Arabic question takes exactly the same path, with no special handling.
 The last one, year-over-year growth by region, scores high on the router and goes straight to the large model with the five tables it needs.
 ⟨If a cheap answer ever fails its free checks or the verifier rejects it, the controller escalates once, and the failed attempt stays in the bill. On this set nothing needed it.⟩
-Every line is a logged JSON row with tokens, cost and latency.
 
-### 1:22 → 2:02 · report.html — the six-policy ladder
+### 1:17 → 1:57 · report.html — the six-policy ladder
 
 **DO:** **Alt+Tab** to the browser, tab 1. Move the pointer slowly down the rows as you name them: **P0** (baseline) → **S** (small only) → **P1** (router) → **P2** (pruning) → **P3** (full system) → **V** (verify always). Rest the pointer on the cost column of P3 while saying "seven percent".
 
-Checkpoint: browser on screen by **1:25**.
+Checkpoint: browser on screen by **1:20**.
 
 **SAY:**
 Same one hundred and fifty questions, six policies. The baseline is the large model on everything: one hundred percent accuracy at under a cent per correct answer.
@@ -74,23 +73,24 @@ Small model only is cheap but loses accuracy on the hard questions.
 Adding the router cuts cost per correct answer by forty-six percent. Adding context pruning takes it to sixty-eight. Selective verification brings accuracy back to one hundred while verifying only seven percent of questions. Verify-always gets the same accuracy at more than twice the cost.
 So each component earns its row, and both naive extremes lose.
 
-### 2:02 → 2:20 · report.html — robustness tables
+### 1:57 → 2:09 · report.html — robustness tables
 
-**DO:** scroll down to the **R1 / R2 / R3** tables; pointer on the verified-% column of R1, then on the p95 column of the R3 qwen row.
+**DO:** scroll down to the **R1 / R2 / R3** tables; pointer on the verified-% column of R1 (12 %).
 
 **SAY:**
-Under a renamed schema, Arabic questions and a swapped small model, with no retuning, accuracy holds and the controller adapts: it verifies more when the schema is unfamiliar, and it exposes the latency of the slower swapped model instead of hiding it.
+Under a renamed schema, Arabic questions and a swapped small model, with no retuning, accuracy holds and the controller adapts: it verifies more when the schema is unfamiliar.
 
-### 2:20 → 2:41 · report.html — held-out table
+### 2:09 → 2:39 · report.html — held-out table
 
-**DO:** scroll to the **held-out** table; pointer on the P3 row, cost column.
+**DO:** scroll to the **held-out** table; pointer on the P3 row, cost column for the first two sentences, then move it onto the **floors** cell (the ❌ p95) for the last sentence. Say the miss yourself: it is on screen either way.
 
-Checkpoint: held-out table on screen by **2:22**. If you are more than 10 s behind here, drop the last clause of the previous block ("and it exposes … hiding it") next take, not this sentence.
+Checkpoint: held-out table on screen by **2:12**. If you are more than 10 s behind here, next take drop the bracketed sentences, not anything in this block.
 
 **SAY:**
 The final numbers come from a held-out set: one hundred and fifty tasks generated with a secret seed outside the repository, including six question types never seen during development, run once after freezing every threshold. Sixty-eight percent less cost per correct answer, at zero point six points lower accuracy.
+It misses the p95 latency floor by half a second, because the questions that get a second opinion pass through two models.
 
-### 2:41 → 2:50 · GitHub README — Quick start
+### 2:39 → 2:48 · GitHub README — Quick start
 
 **DO:** click browser **tab 2** (README at Quick start). Say the lines, hold one full second of silence after "Thank you", then **stop the recorder**.
 
@@ -105,16 +105,17 @@ Limitations: synthetic data, one domain, a lexical router, two days, one person.
 |---|---|
 | 0:22 | pressing → to slide 4 |
 | 0:32–0:35 | pressing Enter in PowerShell |
-| 1:22–1:25 | switching to the browser |
-| 2:02 | scrolling to R1 / R2 / R3 |
-| 2:20–2:22 | on the held-out table |
-| 2:41 | on the README tab |
-| ≤ 2:55 | recorder stopped |
+| 1:17–1:20 | switching to the browser |
+| 1:57 | scrolling to R1 / R2 / R3 |
+| 2:09–2:12 | on the held-out table |
+| 2:39 | on the README tab |
+| ≤ 2:52 | recorder stopped |
 
 ## Retake rules
 
 - A stumble on one word is not a retake. Retake only if the video runs past 3:00, the audio drops, or a notification appears.
-- Over 3:00? Next take, keep both ⟨⟩ sentences out and read the slide-1 block a touch faster.
+- Over 3:00? Next take, keep all ⟨⟩ sentences out and read the slide-1 block a touch faster. Never cut the held-out block or the p95 sentence.
+- Stumbling a lot in English on take one? The Arabic version at the end of this file has the same beats; a confident Arabic take beats a halting English one.
 - Three takes maximum; keep the best one.
 - Before every retake: `Remove-Item results\runs\demo-P3.jsonl`, `cls`, retype the command without Enter, slides back to slide 1, report tab scrolled to the top.
 
@@ -142,19 +143,19 @@ Limitations: synthetic data, one domain, a lexical router, two days, one person.
 السؤال العربي يسلك المسار نفسه تماماً، بلا أي معالجة خاصة.
 السؤال الأخير، النمو السنوي حسب المنطقة، يسجّل درجة عالية عند الموجّه فيذهب مباشرة إلى النموذج الكبير مع الجداول الخمسة التي يحتاجها.
 ⟨لو فشل جواب رخيص في الفحوص المجانية أو رفضه المتحقق، يصعّد الـ controller مرة واحدة، والمحاولة الفاشلة تبقى في الفاتورة. في هذه المجموعة لم يحتج لذلك.⟩
-كل سطر هنا صف JSON مسجّل بالتوكنات والتكلفة والزمن.
 
-**[1:22 — المتصفح، report.html، مرّر على الصفوف P0 → S → P1 → P2 → P3 → V]**
+**[1:17 — المتصفح، report.html، مرّر على الصفوف P0 → S → P1 → P2 → P3 → V]**
 نفس المئة والخمسين سؤالاً، ست سياسات. الأساس هو النموذج الكبير على كل شيء: دقة مئة بالمئة بأقل من سنت لكل إجابة صحيحة.
 النموذج الصغير وحده رخيص لكنه يخسر الدقة في الأسئلة الصعبة.
 إضافة الموجّه تخفض التكلفة لكل إجابة صحيحة ستة وأربعين بالمئة. إضافة تقليم السياق توصلها إلى ثمانية وستين بالمئة. التحقق الانتقائي يعيد الدقة إلى مئة بالمئة وهو يتحقق من سبعة بالمئة من الأسئلة فقط. والتحقق على كل شيء يعطي الدقة نفسها بأكثر من ضعف التكلفة.
 إذن كل مكوّن يكسب صفه، والطرفان الساذجان يخسران.
 
-**[2:02 — انزل إلى جداول R1 / R2 / R3]**
-مع schema بأسماء مختلفة، وأسئلة عربية، ونموذج صغير مُبدَّل، وبلا أي إعادة ضبط، الدقة تثبت والـ controller يتكيف: يتحقق أكثر حين تكون الـ schema غريبة، ويكشف بطء النموذج البديل بدل أن يخفيه.
+**[1:57 — انزل إلى جداول R1 / R2 / R3]**
+مع schema بأسماء مختلفة، وأسئلة عربية، ونموذج صغير مُبدَّل، وبلا أي إعادة ضبط، الدقة تثبت والـ controller يتكيف: يتحقق أكثر حين تكون الـ schema غريبة.
 
-**[2:20 — جدول held-out]**
+**[2:09 — جدول held-out]**
 الأرقام النهائية من مجموعة محجوبة: مئة وخمسون مهمة وُلّدت بـ seed سري خارج المستودع، فيها ستة أنواع أسئلة لم تظهر أثناء التطوير، شُغّلت مرة واحدة بعد تجميد كل الإعدادات. ثمانية وستون بالمئة أقل تكلفة لكل إجابة صحيحة، بفارق دقة ستة أعشار نقطة.
+ويفوّت حدّ زمن p95 بنصف ثانية، لأن الأسئلة التي تأخذ رأياً ثانياً تمر عبر نموذجين.
 
-**[2:41 — GitHub README، قسم Quick start]**
+**[2:39 — GitHub README، قسم Quick start]**
 الحدود: بيانات صناعية، مجال واحد، موجّه معجمي، يومان وشخص واحد. وكل شيء قابل للتكرار بأمر واحد. شكراً.
